@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="src/main/java/org/commons.mapper.ExcelTaskProcessMapper">
+
+    <resultMap id="BaseResultMap" type="src/main/java/org/commons.domain.ExcelTaskProcess">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="type" column="type" jdbcType="TINYINT"/>
+            <result property="status" column="status" jdbcType="TINYINT"/>
+            <result property="sourceFile" column="source_file" jdbcType="VARCHAR"/>
+            <result property="estimateCount" column="estimate_count" jdbcType="BIGINT"/>
+            <result property="totalCount" column="total_count" jdbcType="BIGINT"/>
+            <result property="successCount" column="success_count" jdbcType="BIGINT"/>
+            <result property="failedCount" column="failed_count" jdbcType="BIGINT"/>
+            <result property="fileName" column="file_name" jdbcType="VARCHAR"/>
+            <result property="fileUrl" column="file_url" jdbcType="VARCHAR"/>
+            <result property="message" column="message" jdbcType="VARCHAR"/>
+            <result property="startTime" column="start_time" jdbcType="TIMESTAMP"/>
+            <result property="endTime" column="end_time" jdbcType="TIMESTAMP"/>
+            <result property="creator" column="creator" jdbcType="VARCHAR"/>
+            <result property="businessCode" column="business_code" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,type,status,
+        source_file,estimate_count,total_count,
+        success_count,failed_count,file_name,
+        file_url,message,start_time,
+        end_time,creator,business_code
+    </sql>
+</mapper>
