@@ -1,6 +1,5 @@
-package org.commons.domain.model.entity
+package org.commons.domain.model.entity;
 
-/main/java/org/commons.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;

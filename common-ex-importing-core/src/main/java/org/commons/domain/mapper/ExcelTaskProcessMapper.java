@@ -1,10 +1,8 @@
-package org.commons.domain.mapper
+package org.commons.domain.mapper;
 
-/main/java/org/commons.mapper;
 
-import org.commons.domain.model.entity.ExcelTaskProcess;
-import src/main/java/org/commons.domain.ExcelTaskProcess;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.commons.domain.model.entity.ExcelTaskProcess;
 
 /**
 * @author c-zhongwh01
