@@ -10,52 +10,32 @@ import java.util.Date;
 import lombok.Data;
 
 /**
- * 导入导出任务
- * @TableName excel_task_process
+ * 导出任务
+ * @TableName export_task_process
  */
-@TableName(value ="excel_task_process")
+@TableName(value ="export_task_process")
 @Data
-public class ExcelTaskProcess implements Serializable {
+public class ExportTaskProcess implements Serializable {
     /**
      * 主键id
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(type = IdType.ID_WORKER)
     private Long id;
 
     /**
-     * 类型：1-导入,2-导出
+     * 业务类型
      */
-    private Integer type;
+    private String businessType;
+
+    /**
+     * 业务系统
+     */
+    private String businessSystem;
 
     /**
      * 状态：0-初始,1-进行中,2-完成,3-失败
      */
     private Integer status;
-
-    /**
-     * 源文件
-     */
-    private String sourceFile;
-
-    /**
-     * 预估总记录数
-     */
-    private Long estimateCount;
-
-    /**
-     * 实际总记录数
-     */
-    private Long totalCount;
-
-    /**
-     * 成功记录数
-     */
-    private Long successCount;
-
-    /**
-     * 失败记录数
-     */
-    private Long failedCount;
 
     /**
      * 文件名
@@ -83,14 +63,10 @@ public class ExcelTaskProcess implements Serializable {
     private Date endTime;
 
     /**
-     * chua
+     * 操作人
      */
     private String creator;
 
-    /**
-     * 业务编码
-     */
-    private String businessCode;
 
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
