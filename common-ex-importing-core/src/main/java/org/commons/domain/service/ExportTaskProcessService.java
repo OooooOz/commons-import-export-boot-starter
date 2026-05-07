@@ -4,6 +4,7 @@ package org.commons.domain.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.domain.model.entity.ExportTaskProcess;
+import org.commons.domain.model.vo.ExportTaskVO;
 
 /**
  * @author
@@ -18,5 +19,13 @@ public interface ExportTaskProcessService extends IService<ExportTaskProcess> {
      * @param dto
      * @return
      */
-    Long createTask(ExportTaskDTO dto);
+    ExportTaskVO createTask(ExportTaskDTO dto);
+
+    /**
+     * 查询导出任务详情
+     *
+     * @param id 任务id
+     * @return 任务详情
+     */
+    ExportTaskVO getTask(Long id);
 }

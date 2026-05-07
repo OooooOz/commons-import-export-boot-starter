@@ -16,3 +16,28 @@ mybatis-plus:
 
 server:
   port: 8091
+
+common:
+  export:
+    async:
+      core-pool-size: 4
+      max-pool-size: 8
+      queue-capacity: 200
+      page-size: 5000
+      max-rows-per-sheet: 1000000
+    storage:
+      # local：开发联调写本地；aliyun：上传阿里云 OSS
+      type: local
+      object-prefix: exports
+      local-root: ./data/export-files
+      local-download-url: http://localhost:8091/api/export/task/local-file
+      # type: aliyun 时配置以下参数，敏感信息建议放入环境变量或配置中心
+      # endpoint: oss-cn-hangzhou.aliyuncs.com
+      # bucket-name: your-bucket
+      # access-key-id: ${OSS_ACCESS_KEY_ID}
+      # access-key-secret: ${OSS_ACCESS_KEY_SECRET}
+      # custom-domain: https://download.example.com
+      # url-expire-seconds: 3600
+    sample:
+      enabled: true
+

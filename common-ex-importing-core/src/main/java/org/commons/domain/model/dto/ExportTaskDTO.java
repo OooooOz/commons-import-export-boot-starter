@@ -9,6 +9,16 @@ import java.util.Map;
 @Data
 public class ExportTaskDTO {
     /**
+     * 任务唯一编号，不传则后端自动生成
+     */
+    private String taskNo;
+
+    /**
+     * 任务名称
+     */
+    private String taskName;
+
+    /**
      * 业务类型
      */
     @NotBlank(message = "业务类型不能为空")
@@ -24,6 +34,11 @@ public class ExportTaskDTO {
      * 文件名
      */
     private String fileName;
+
+    /**
+     * sheet名称
+     */
+    private String sheetName;
 
     /**
      * 文件路径

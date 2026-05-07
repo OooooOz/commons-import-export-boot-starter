@@ -19,8 +19,18 @@ public class ExportTaskProcess implements Serializable {
     /**
      * 主键id
      */
-    @TableId(type = IdType.ID_WORKER)
+    @TableId(type = IdType.AUTO)
     private Long id;
+
+    /**
+     * 任务唯一编号
+     */
+    private String taskNo;
+
+    /**
+     * 任务名称
+     */
+    private String taskName;
 
     /**
      * 业务类型

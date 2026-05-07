@@ -6,8 +6,17 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.commons.domain.mapper.ExportTaskProcessMapper;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.domain.model.entity.ExportTaskProcess;
+import org.commons.domain.model.enums.ExportTaskStatusEnum;
+import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.service.ExportTaskProcessService;
+import org.commons.export.ExportTaskExecutor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.UUID;
 
 /**
  * @author
@@ -17,11 +26,35 @@ import org.springframework.stereotype.Service;
 @Service
 public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessMapper, ExportTaskProcess> implements ExportTaskProcessService {
 
+    @Autowired
+    private ExportTaskExecutor exportTaskExecutor;
+
     @Override
-    public Long createTask(ExportTaskDTO dto) {
+    public ExportTaskVO createTask(ExportTaskDTO dto) {
         ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
+        entity.setTaskNo(StringUtils.hasText(dto.getTaskNo()) ? dto.getTaskNo() : generateTaskNo());
+        entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
+        entity.setMessage("任务已创建，等待导出");
         this.save(entity);
-        return entity.getId();
+        exportTaskExecutor.submit(entity.getId(), dto);
+        return toVO(this.getById(entity.getId()));
+    }
+
+    @Override
+    public ExportTaskVO getTask(Long id) {
+        return toVO(this.getById(id));
+    }
+
+    private ExportTaskVO toVO(ExportTaskProcess entity) {
+        if (entity == null) {
+            return null;
+        }
+        return BeanUtil.copyProperties(entity, ExportTaskVO.class);
+    }
+
+    private String generateTaskNo() {
+        return "EXP" + new SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date())
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 }
 
