@@ -3,8 +3,8 @@ package org.commons.exporting.infrastructure.handle;
 import com.alibaba.excel.write.handler.SheetWriteHandler;
 import com.alibaba.excel.write.metadata.holder.WriteSheetHolder;
 import com.alibaba.excel.write.metadata.holder.WriteWorkbookHolder;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.MapUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFDataValidation;
@@ -12,20 +12,15 @@ import org.apache.poi.xssf.usermodel.XSSFDataValidation;
 import java.util.Map;
 
 @Slf4j
+@AllArgsConstructor
 public class SelectedSheetWriteHandler implements SheetWriteHandler {
 
     /**
-     * 下拉选项集合
-     */
-    private final Map<Integer, ExcelSelectedResolve> selectedMap;
-    /**
      * 设置阈值，避免生成的导入模板下拉值获取不到，可自行设置数量大小
      */
-    private int limitNumber = 25;
-
-    public SelectedSheetWriteHandler(Map<Integer, ExcelSelectedResolve> selectedMap) {
-        this.selectedMap = selectedMap;
-    }
+    private static final Integer LIMIT_NUMBER = 25;
+    public static final String HIDDEN_SHEET_NAME_PREFIX = "hidden";
+    private final Map<Integer, ExcelSelectedResolve> selectedMap;
 
     /**
      * Called before create the sheet
@@ -40,44 +35,38 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
      */
     @Override
     public void afterSheetCreate(WriteWorkbookHolder writeWorkbookHolder, WriteSheetHolder writeSheetHolder) {
-        if (MapUtils.isEmpty(selectedMap)) {
-            log.info("[SelectedSheetWriteHandler#afterSheetCreate]没有自定义下拉选项");
-            return;
-        }
         // 这里可以对cell进行任何操作
         Sheet sheet = writeSheetHolder.getSheet();
         DataValidationHelper helper = sheet.getDataValidationHelper();
-        selectedMap.forEach((cellIndex, v) -> {
+        selectedMap.forEach((k, v) -> {
             // 设置下拉列表的行： 首行，末行，首列，末列
-            CellRangeAddressList rangeList = new CellRangeAddressList(v.getFirstRow(), v.getLastRow(), cellIndex, cellIndex);
+            CellRangeAddressList rangeList = new CellRangeAddressList(v.getFirstRow(), v.getLastRow(), k, k);
             // 如果下拉值总数大于25，则使用一个新sheet存储，避免生成的导入模板下拉值获取不到
-            if (v.getSource().length > limitNumber) {
+            DataValidationConstraint constraint;
+            if (v.getSource().length > LIMIT_NUMBER) {
                 // 定义sheet的名称
-                // 1.创建一个隐藏的sheet 名称为 hidden + cellIndex
-                String sheetName = "hidden" + cellIndex;
+                // 1.创建一个隐藏的sheet 名称为 hidden + k
+                String sheetName = HIDDEN_SHEET_NAME_PREFIX + k;
                 Workbook workbook = writeWorkbookHolder.getWorkbook();
                 Sheet hiddenSheet = workbook.createSheet(sheetName);
                 for (int i = 0, length = v.getSource().length; i < length; i++) {
                     // 开始的行数i，列数k
-                    hiddenSheet.createRow(i).createCell(cellIndex).setCellValue(v.getSource()[i]);
+                    hiddenSheet.createRow(i).createCell(k).setCellValue(v.getSource()[i]);
                 }
-                Name category1Name = workbook.createName();
-                category1Name.setNameName(sheetName);
-                String excelLine = getExcelLine(cellIndex);
+
+                String excelLine = getExcelLine(k);
                 // =hidden!$H:$1:$H$50 sheet为hidden的 H1列开始H50行数据获取下拉数组
-                String refers = "=" + sheetName + "!$" + excelLine + "$1:$" + excelLine + "$" + (v.getSource().length + 1);
+                String refers = "=" + sheetName + "!$" + excelLine + "$1:$" + excelLine + "$" + (v.getSource().length);
                 // 将刚才设置的sheet引用到你的下拉列表中
-                DataValidationConstraint constraint = helper.createFormulaListConstraint(refers);
-                DataValidation dataValidation = helper.createValidation(constraint, rangeList);
-                writeSheetHolder.getSheet().addValidationData(dataValidation);
+                constraint = helper.createFormulaListConstraint(refers);
                 // 设置存储下拉列值得sheet为隐藏
                 int hiddenIndex = workbook.getSheetIndex(sheetName);
                 if (!workbook.isSheetHidden(hiddenIndex)) {
                     workbook.setSheetHidden(hiddenIndex, true);
                 }
+            } else {
+                constraint = helper.createExplicitListConstraint(v.getSource());
             }
-            // 设置下拉列表的值
-            DataValidationConstraint constraint = helper.createExplicitListConstraint(v.getSource());
             // 设置约束
             DataValidation validation = helper.createValidation(constraint, rangeList);
             // 阻止输入非下拉选项的值
