@@ -1,8 +1,11 @@
 package org.commons.domain.service;
 
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import org.commons.domain.model.dto.ExportTaskDTO;
+import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.vo.ExportTaskVO;
 
@@ -28,4 +31,13 @@ public interface ExportTaskProcessService extends IService<ExportTaskProcess> {
      * @return 任务详情
      */
     ExportTaskVO getTask(Long id);
+
+    /**
+     * 分页查询导出任务。
+     *
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
+     */
+    IPage<ExportTaskProcess> pageQuery(Page<ExportTaskProcess> page, ExportTaskPageQuery query);
 }

@@ -15,7 +15,7 @@ import java.util.Map;
 @Component
 @ConditionalOnProperty(prefix = "common.export.sample", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class SampleUserExportHandler implements ExportTaskHandler<SampleUserExportRow> {
-    public static final String BUSINESS_TYPE = "sample_user";
+    public static final String BUSINESS_TYPE = "测试";
 
     @Override
     public String businessType() {

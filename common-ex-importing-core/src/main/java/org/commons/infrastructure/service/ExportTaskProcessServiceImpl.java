@@ -2,9 +2,12 @@ package org.commons.infrastructure.service;
 
 
 import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.commons.domain.mapper.ExportTaskProcessMapper;
 import org.commons.domain.model.dto.ExportTaskDTO;
+import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.enums.ExportTaskStatusEnum;
 import org.commons.domain.model.vo.ExportTaskVO;
@@ -43,6 +46,11 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
     @Override
     public ExportTaskVO getTask(Long id) {
         return toVO(this.getById(id));
+    }
+
+    @Override
+    public IPage<ExportTaskProcess> pageQuery(Page<ExportTaskProcess> page, ExportTaskPageQuery query) {
+        return baseMapper.selectTaskPage(page, query);
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity) {

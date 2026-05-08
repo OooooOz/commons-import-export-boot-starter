@@ -17,7 +17,6 @@
         <spring-boot-dependencies.version>2.3.5.RELEASE</spring-boot-dependencies.version>
         <spring-cloud-alibaba-dependencies>2.2.5.RELEASE</spring-cloud-alibaba-dependencies>
         <mybatis-spring-boot-starter.version>2.2.0</mybatis-spring-boot-starter.version>
-        <commons-lang3.version>3.11</commons-lang3.version>
         <fastJson.version>1.2.75</fastJson.version>
         <guava.version>30.1.1-jre</guava.version>
         <lombok.version>1.18.22</lombok.version>
@@ -81,6 +80,10 @@
             <groupId>com.aliyun.oss</groupId>
             <artifactId>aliyun-sdk-oss</artifactId>
             <version>3.17.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
         </dependency>
     </dependencies>
 </project>

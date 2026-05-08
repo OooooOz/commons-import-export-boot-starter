@@ -1,7 +1,11 @@
 package org.commons.domain.mapper;
 
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.apache.ibatis.annotations.Param;
+import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 
 /**
@@ -12,6 +16,10 @@ import org.commons.domain.model.entity.ExportTaskProcess;
  */
 public interface ExportTaskProcessMapper extends BaseMapper<ExportTaskProcess> {
 
+	/**
+	 * XML 分页查询导出任务。
+	 */
+	IPage<ExportTaskProcess> selectTaskPage(Page<ExportTaskProcess> page, @Param("query") ExportTaskPageQuery query);
 }
 
 
