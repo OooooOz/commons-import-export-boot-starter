@@ -13,9 +13,15 @@ import java.util.Map;
  * 示例业务导出处理器。真实业务请复制该类，替换为数据库分页查询。
  */
 @Component
-@ConditionalOnProperty(prefix = "common.export.sample", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = "common.export.sample", name = "enabled", havingValue = "true")
 public class SampleUserExportHandler implements ExportTaskHandler<SampleUserExportRow> {
+    public static final String BUSINESS_SYSTEM = "手动DEMO";
     public static final String BUSINESS_TYPE = "测试";
+
+    @Override
+    public String businessSystem() {
+        return BUSINESS_SYSTEM;
+    }
 
     @Override
     public String businessType() {

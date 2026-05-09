@@ -13,19 +13,15 @@ import org.commons.export.handler.ExportTaskHandler;
 import org.commons.export.notify.ExportTaskNotifier;
 import org.commons.export.storage.ExportFileStorage;
 import org.commons.export.storage.StorageResult;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.File;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -43,7 +39,7 @@ public class ExportTaskExecutor {
     private final ExportAsyncProperties asyncProperties;
     private final ExportStorageProperties storageProperties;
     private final LargeExcelWriter excelWriter = new LargeExcelWriter();
-    private final Map<String, ExportTaskHandler<?>> handlerMap = new HashMap<>();
+    private final Map<String, ExportTaskHandler<?>> handlerMap;
     private ThreadPoolTaskExecutor executor;
 
     public ExportTaskExecutor(ExportTaskProcessMapper taskMapper,
@@ -57,11 +53,7 @@ public class ExportTaskExecutor {
         this.notifier = notifier;
         this.asyncProperties = asyncProperties;
         this.storageProperties = storageProperties;
-        if (handlers != null) {
-            for (ExportTaskHandler<?> handler : handlers) {
-                this.handlerMap.put(handler.businessType(), handler);
-            }
-        }
+        handlerMap = buildHandlerMap(handlers);
     }
 
     @PostConstruct
@@ -73,7 +65,7 @@ public class ExportTaskExecutor {
         taskExecutor.setQueueCapacity(asyncProperties.getQueueCapacity());
         taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         taskExecutor.initialize();
-        this.executor = taskExecutor;
+        executor = taskExecutor;
         log.info("导出任务线程池初始化完成，handlers={}", handlerMap.keySet());
     }
 
@@ -85,7 +77,7 @@ public class ExportTaskExecutor {
     }
 
     public void submit(Long taskId, ExportTaskDTO dto) {
-        Executor target = this.executor;
+        Executor target = executor;
         if (target == null) {
             throw new IllegalStateException("导出线程池未初始化");
         }
@@ -106,9 +98,10 @@ public class ExportTaskExecutor {
 
         File tempFile = null;
         try {
-            ExportTaskHandler<?> handler = handlerMap.get(task.getBusinessType());
+            String handlerKey = buildHandlerKey(task.getBusinessSystem(), task.getBusinessType());
+            ExportTaskHandler<?> handler = handlerMap.get(handlerKey);
             if (handler == null) {
-                throw new IllegalArgumentException("未找到导出处理器，businessType=" + task.getBusinessType());
+                throw new IllegalArgumentException("未找到导出处理器，businessSystem=" + task.getBusinessSystem() + ", businessType=" + task.getBusinessType());
             }
 
             String fileName = normalizeFileName(StringUtils.hasText(task.getFileName()) ? task.getFileName() : handler.fileName(dto));
@@ -201,6 +194,36 @@ public class ExportTaskExecutor {
             return "导出失败";
         }
         return message.length() > 250 ? message.substring(0, 250) : message;
+    }
+
+    private Map<String, ExportTaskHandler<?>> buildHandlerMap(List<ExportTaskHandler<?>> handlers) {
+        if (handlers == null || handlers.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, ExportTaskHandler<?>> mappings = new LinkedHashMap<>();
+        for (ExportTaskHandler<?> handler : handlers) {
+            String key = buildHandlerKey(handler.businessSystem(), handler.businessType());
+            ExportTaskHandler<?> existing = mappings.putIfAbsent(key, handler);
+            if (existing != null) {
+                throw new IllegalStateException("导出处理器重复注册，key=" + key
+                        + ", existing=" + existing.getClass().getName()
+                        + ", current=" + handler.getClass().getName());
+            }
+        }
+        return Collections.unmodifiableMap(mappings);
+    }
+
+    private String buildHandlerKey(String businessSystem, String businessType) {
+        return normalizeKeyPart(businessSystem, "businessSystem")
+                + "_"
+                + normalizeKeyPart(businessType, "businessType");
+    }
+
+    private String normalizeKeyPart(String value, String fieldName) {
+        if (!StringUtils.hasText(value)) {
+            throw new IllegalArgumentException(fieldName + "不能为空");
+        }
+        return value.trim();
     }
 }
 
