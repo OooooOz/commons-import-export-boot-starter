@@ -2,11 +2,13 @@ package org.commons.export.excel;
 
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
+import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.metadata.WriteSheet;
 
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 大文件 Excel 分页写入工具，避免一次性把全部数据放入内存。
@@ -20,6 +22,7 @@ public class LargeExcelWriter {
     public <T> void write(File file,
                           String sheetName,
                           Class<T> headClass,
+                          Consumer<ExcelWriterBuilder> writerBuilderCustomizer,
                           PageDataLoader<T> loader,
                           int pageSize,
                           long maxRowsPerSheet) {
@@ -39,7 +42,11 @@ public class LargeExcelWriter {
             maxRowsPerSheet = 1048575L;
         }
 
-        ExcelWriter writer = EasyExcel.write(file, headClass).build();
+        ExcelWriterBuilder writerBuilder = EasyExcel.write(file, headClass);
+        if (writerBuilderCustomizer != null) {
+            writerBuilderCustomizer.accept(writerBuilder);
+        }
+        ExcelWriter writer = writerBuilder.build();
         try {
             int sheetNo = 0;
             long currentSheetRows = 0L;

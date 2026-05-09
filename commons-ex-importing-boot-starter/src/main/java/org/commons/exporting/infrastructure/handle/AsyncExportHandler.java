@@ -1,5 +1,6 @@
 package org.commons.exporting.infrastructure.handle;
 
+import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.export.handler.ExportTaskHandler;
 import org.commons.exporting.domain.model.ExportTaskCreateRequest;
@@ -29,6 +30,13 @@ public interface AsyncExportHandler<T> extends ExportTaskHandler<T> {
     }
 
     /**
+     * 自定义 EasyExcel 写入构建器。
+     */
+    default void customizeWriter(ExportTaskCreateRequest request, ExcelWriterBuilder writerBuilder) {
+        // 默认无扩展
+    }
+
+    /**
      * 分页查询业务数据。
      */
     List<T> queryPage(ExportTaskCreateRequest request, long pageNo, int pageSize);
@@ -41,6 +49,11 @@ public interface AsyncExportHandler<T> extends ExportTaskHandler<T> {
     @Override
     default String fileName(ExportTaskDTO dto) {
         return fileName(toRequest(dto));
+    }
+
+    @Override
+    default void customizeWriter(ExportTaskDTO dto, ExcelWriterBuilder writerBuilder) {
+        customizeWriter(toRequest(dto), writerBuilder);
     }
 
     @Override

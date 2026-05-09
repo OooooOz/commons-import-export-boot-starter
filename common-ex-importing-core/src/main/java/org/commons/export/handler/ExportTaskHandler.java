@@ -1,5 +1,6 @@
 package org.commons.export.handler;
 
+import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import org.commons.domain.model.dto.ExportTaskDTO;
 
 import java.util.List;
@@ -38,6 +39,13 @@ public interface ExportTaskHandler<T> {
      */
     default String fileName(ExportTaskDTO dto) {
         return dto.getBusinessType() + ".xlsx";
+    }
+
+    /**
+     * 自定义 EasyExcel 写入构建器，业务可通过回调注册样式、写处理器等。
+     */
+    default void customizeWriter(ExportTaskDTO dto, ExcelWriterBuilder writerBuilder) {
+        // 默认无扩展
     }
 
     /**

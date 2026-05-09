@@ -153,6 +153,7 @@ public class ExportTaskExecutor {
                 tempFile,
                 handler.sheetName(dto),
                 handler.headClass(),
+                writerBuilder -> handler.customizeWriter(dto, writerBuilder),
                 (pageNo, pageSize) -> handler.queryPage(dto, pageNo, pageSize),
                 asyncProperties.getPageSize(),
                 asyncProperties.getMaxRowsPerSheet());
