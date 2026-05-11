@@ -1,6 +1,7 @@
 package org.commons.adapter.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.commons.adapter.dto.ExportTaskFailureDTO;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
 import org.commons.application.CommonExportTaskProcessService;
 import org.commons.domain.model.dto.ExportTaskDTO;
@@ -9,11 +10,14 @@ import org.commons.domain.model.vo.BaseResponse;
 import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.model.vo.LocalExportFileDownload;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -40,6 +44,50 @@ public class ExportTaskProcessController {
     @PostMapping("/create")
     public BaseResponse<ExportTaskVO> createTask(@RequestBody @Validated ExportTaskDTO dto) {
         return BaseResponse.SUCCESS(commonExportTaskProcessService.createTask(dto));
+    }
+
+    /**
+     * starter 客户端模式创建导出任务：任务只存储在 core，不由 core 执行业务数据查询。
+     */
+    @PostMapping("/client/create")
+    public BaseResponse<ExportTaskVO> createClientTask(@RequestBody @Validated ExportTaskDTO dto) {
+        return BaseResponse.SUCCESS(commonExportTaskProcessService.createClientTask(dto));
+    }
+
+    /**
+     * starter 回写处理中状态。
+     */
+    @PostMapping("/client/{id}/processing")
+    public BaseResponse<ExportTaskVO> markProcessing(@PathVariable("id") Long id) {
+        return BaseResponse.SUCCESS(commonExportTaskProcessService.markProcessing(id));
+    }
+
+    /**
+     * starter 上传导出文件，core 统一存储文件并将任务标记为成功。
+     */
+    @PostMapping(value = "/client/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public BaseResponse<ExportTaskVO> uploadSuccess(@PathVariable("id") Long id,
+                                                    @RequestPart("file") MultipartFile file,
+                                                    @RequestParam(value = "fileName", required = false) String fileName,
+                                                    @RequestParam(value = "message", required = false) String message) throws IOException {
+        Path tempFile = Files.createTempFile("client-export-" + id + "-", ".xlsx");
+        try {
+            file.transferTo(tempFile.toFile());
+            String targetFileName = fileName != null ? fileName : file.getOriginalFilename();
+            return BaseResponse.SUCCESS(commonExportTaskProcessService.uploadSuccess(id, tempFile.toFile(), targetFileName, message));
+        } finally {
+            Files.deleteIfExists(tempFile);
+        }
+    }
+
+    /**
+     * starter 回写失败状态。
+     */
+    @PostMapping("/client/{id}/fail")
+    public BaseResponse<ExportTaskVO> markFailure(@PathVariable("id") Long id,
+                                                  @RequestBody(required = false) ExportTaskFailureDTO dto) {
+        String message = dto == null ? null : dto.getMessage();
+        return BaseResponse.SUCCESS(commonExportTaskProcessService.markFailure(id, message));
     }
 
     /**

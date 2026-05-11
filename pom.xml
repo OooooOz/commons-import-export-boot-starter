@@ -9,7 +9,7 @@
     <packaging>pom</packaging> <!--以后导入的时候要使用的版本号，需要修改-->
     <name>commons-import-export-boot-starter</name>
     <modules>
-        <module>commons-ex-importing-boot-starter</module>
+        <module>commons-ex-importing-sdk</module>
         <module>common-ex-importing-core</module>
     </modules>
 

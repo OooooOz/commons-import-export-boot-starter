@@ -13,13 +13,10 @@ import org.commons.domain.model.enums.ExportTaskStatusEnum;
 import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.service.ExportTaskProcessService;
 import org.commons.export.ExportTaskExecutor;
+import org.commons.infrastructure.util.ExportTaskNoGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.UUID;
 
 /**
  * @author
@@ -35,10 +32,9 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
     @Override
     public ExportTaskVO createTask(ExportTaskDTO dto) {
         ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
-        entity.setTaskNo(StringUtils.hasText(dto.getTaskNo()) ? dto.getTaskNo() : generateTaskNo());
         entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
         entity.setMessage("任务已创建，等待导出");
-        this.save(entity);
+        saveWithGeneratedTaskNo(entity);
         exportTaskExecutor.submit(entity.getId(), dto);
         return toVO(this.getById(entity.getId()));
     }
@@ -60,9 +56,18 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
         return BeanUtil.copyProperties(entity, ExportTaskVO.class);
     }
 
-    private String generateTaskNo() {
-        return "EXP" + new SimpleDateFormat("yyyyMMddHHmmssSSS").format(new Date())
-                + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    private void saveWithGeneratedTaskNo(ExportTaskProcess entity) {
+        DuplicateKeyException lastException = null;
+        for (int i = 0; i < 5; i++) {
+            entity.setTaskNo(ExportTaskNoGenerator.generate());
+            try {
+                this.save(entity);
+                return;
+            } catch (DuplicateKeyException e) {
+                lastException = e;
+            }
+        }
+        throw new IllegalStateException("生成唯一导出任务号失败，请稍后重试", lastException);
     }
 }
 

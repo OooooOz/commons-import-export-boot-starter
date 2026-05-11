@@ -1,33 +1,39 @@
 package org.commons.exporting.infrastructure.service;
 
-import org.commons.application.CommonExportTaskProcessService;
-import org.commons.domain.model.dto.ExportTaskDTO;
-import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.exporting.domain.model.ExportTaskCreateRequest;
 import org.commons.exporting.domain.model.ExportTaskInfo;
 import org.commons.exporting.domain.service.Exporting;
-import org.springframework.stereotype.Service;
+import org.commons.exporting.infrastructure.client.RemoteExportTaskClient;
+import org.commons.exporting.infrastructure.client.model.ExportTaskDTO;
+import org.commons.exporting.infrastructure.client.model.ExportTaskVO;
 
 /**
- * 异步导出 SDK 默认实现。
+ * 异步导出 SDK 默认实现：任务元数据存储在 core 服务，业务数据导出逻辑在业务系统本地异步执行。
  */
-@Service
 public class DefaultExporting implements Exporting {
 
-    private final CommonExportTaskProcessService commonExportTaskProcessService;
+    private final RemoteExportTaskClient remoteExportTaskClient;
+    private final StarterAsyncExportExecutor starterAsyncExportExecutor;
 
-    public DefaultExporting(CommonExportTaskProcessService commonExportTaskProcessService) {
-        this.commonExportTaskProcessService = commonExportTaskProcessService;
+    public DefaultExporting(RemoteExportTaskClient remoteExportTaskClient,
+                            StarterAsyncExportExecutor starterAsyncExportExecutor) {
+        this.remoteExportTaskClient = remoteExportTaskClient;
+        this.starterAsyncExportExecutor = starterAsyncExportExecutor;
     }
 
     @Override
     public ExportTaskInfo createTask(ExportTaskCreateRequest request) {
-        return toInfo(commonExportTaskProcessService.createTask(toDto(request)));
+        ExportTaskCreateRequest safeRequest = request == null ? new ExportTaskCreateRequest() : request;
+        ExportTaskVO task = remoteExportTaskClient.createTask(toDto(safeRequest));
+        ExportTaskInfo info = toInfo(task);
+        safeRequest.setFileName(info.getFileName());
+        starterAsyncExportExecutor.submit(info.getId(), safeRequest);
+        return info;
     }
 
     @Override
     public ExportTaskInfo getTask(Long id) {
-        return toInfo(commonExportTaskProcessService.getTask(id));
+        return toInfo(remoteExportTaskClient.getTask(id));
     }
 
     private ExportTaskDTO toDto(ExportTaskCreateRequest request) {
@@ -35,7 +41,6 @@ public class DefaultExporting implements Exporting {
         if (request == null) {
             return dto;
         }
-        dto.setTaskNo(request.getTaskNo());
         dto.setTaskName(request.getTaskName());
         dto.setBusinessType(request.getBusinessType());
         dto.setBusinessSystem(request.getBusinessSystem());

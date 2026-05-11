@@ -8,10 +8,6 @@ import java.util.Map;
 
 @Data
 public class ExportTaskDTO {
-    /**
-     * 任务唯一编号，不传则后端自动生成
-     */
-    private String taskNo;
 
     /**
      * 任务名称

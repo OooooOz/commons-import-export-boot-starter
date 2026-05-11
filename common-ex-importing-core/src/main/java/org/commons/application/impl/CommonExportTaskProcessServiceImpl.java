@@ -1,5 +1,6 @@
 package org.commons.application.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
@@ -7,16 +8,24 @@ import org.commons.application.CommonExportTaskProcessService;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
+import org.commons.domain.model.enums.ExportTaskStatusEnum;
 import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.model.vo.LocalExportFileDownload;
+import org.commons.export.config.ExportStorageProperties;
 import org.commons.domain.service.ExportTaskProcessService;
 import org.commons.export.notify.ExportTaskNotifier;
+import org.commons.export.storage.ExportFileStorage;
 import org.commons.export.storage.LocalExportFileStorage;
+import org.commons.export.storage.StorageResult;
+import org.commons.infrastructure.util.ExportTaskNoGenerator;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -28,23 +37,90 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     private static final String ASC = "asc";
     private static final String DESC = "desc";
     private static final String DEFAULT_ORDER_BY = "id DESC";
+    private static final String XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final Map<String, String> SORT_FIELD_MAPPING = buildSortFieldMapping();
 
     private final ExportTaskProcessService exportTaskProcessService;
     private final ExportTaskNotifier exportTaskNotifier;
     private final ObjectProvider<LocalExportFileStorage> localExportFileStorageProvider;
+    private final ExportFileStorage exportFileStorage;
+    private final ExportStorageProperties exportStorageProperties;
 
     public CommonExportTaskProcessServiceImpl(ExportTaskProcessService exportTaskProcessService,
                                               ExportTaskNotifier exportTaskNotifier,
-                                              ObjectProvider<LocalExportFileStorage> localExportFileStorageProvider) {
+                                               ObjectProvider<LocalExportFileStorage> localExportFileStorageProvider,
+                                               ExportFileStorage exportFileStorage,
+                                               ExportStorageProperties exportStorageProperties) {
         this.exportTaskProcessService = exportTaskProcessService;
         this.exportTaskNotifier = exportTaskNotifier;
         this.localExportFileStorageProvider = localExportFileStorageProvider;
+        this.exportFileStorage = exportFileStorage;
+        this.exportStorageProperties = exportStorageProperties;
     }
 
     @Override
     public ExportTaskVO createTask(ExportTaskDTO dto) {
         return exportTaskProcessService.createTask(dto);
+    }
+
+    @Override
+    public ExportTaskVO createClientTask(ExportTaskDTO dto) {
+        ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
+        entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
+        entity.setMessage("任务已创建，等待业务系统导出");
+        saveWithGeneratedTaskNo(entity);
+        ExportTaskProcess latest = exportTaskProcessService.getById(entity.getId());
+        exportTaskNotifier.notify(latest);
+        return toVO(latest);
+    }
+
+    @Override
+    public ExportTaskVO markProcessing(Long id) {
+        ExportTaskProcess update = new ExportTaskProcess();
+        update.setId(id);
+        update.setStatus(ExportTaskStatusEnum.PROCESSING.getCode());
+        update.setStartTime(new Date());
+        update.setMessage("导出处理中");
+        exportTaskProcessService.updateById(update);
+        ExportTaskProcess latest = exportTaskProcessService.getById(id);
+        exportTaskNotifier.notify(latest);
+        return toVO(latest);
+    }
+
+    @Override
+    public ExportTaskVO uploadSuccess(Long id, File file, String fileName, String message) {
+        ExportTaskProcess task = exportTaskProcessService.getById(id);
+        if (task == null) {
+            throw new IllegalArgumentException("导出任务不存在，id=" + id);
+        }
+        String normalizedFileName = normalizeFileName(fileName);
+        String objectName = buildObjectName(task.getTaskNo(), normalizedFileName);
+        StorageResult storageResult = exportFileStorage.upload(file, objectName, XLSX_CONTENT_TYPE);
+
+        ExportTaskProcess update = new ExportTaskProcess();
+        update.setId(id);
+        update.setStatus(ExportTaskStatusEnum.SUCCESS.getCode());
+        update.setFileName(normalizedFileName);
+        update.setFileUrl(storageResult.getUrl());
+        update.setMessage(StringUtils.hasText(message) ? message : "导出完成");
+        update.setEndTime(new Date());
+        exportTaskProcessService.updateById(update);
+        ExportTaskProcess latest = exportTaskProcessService.getById(id);
+        exportTaskNotifier.notify(latest);
+        return toVO(latest);
+    }
+
+    @Override
+    public ExportTaskVO markFailure(Long id, String message) {
+        ExportTaskProcess update = new ExportTaskProcess();
+        update.setId(id);
+        update.setStatus(ExportTaskStatusEnum.FAIL.getCode());
+        update.setMessage(limitMessage(message));
+        update.setEndTime(new Date());
+        exportTaskProcessService.updateById(update);
+        ExportTaskProcess latest = exportTaskProcessService.getById(id);
+        exportTaskNotifier.notify(latest);
+        return toVO(latest);
     }
 
     @Override
@@ -137,6 +213,65 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private ExportTaskVO toVO(ExportTaskProcess entity) {
+        if (entity == null) {
+            return null;
+        }
+        return BeanUtil.copyProperties(entity, ExportTaskVO.class);
+    }
+
+    private void saveWithGeneratedTaskNo(ExportTaskProcess entity) {
+        DuplicateKeyException lastException = null;
+        for (int i = 0; i < 5; i++) {
+            entity.setTaskNo(ExportTaskNoGenerator.generate());
+            try {
+                exportTaskProcessService.save(entity);
+                return;
+            } catch (DuplicateKeyException e) {
+                lastException = e;
+            }
+        }
+        throw new IllegalStateException("生成唯一导出任务号失败，请稍后重试", lastException);
+    }
+
+    private String buildObjectName(String taskNo, String fileName) {
+        String date = new SimpleDateFormat("yyyyMMdd").format(new Date());
+        String prefix = exportStorageProperties.getObjectPrefix();
+        if (!StringUtils.hasText(prefix)) {
+            prefix = "exports";
+        }
+        prefix = trimSlash(prefix);
+        return prefix + "/" + date + "/" + taskNo + "-" + fileName;
+    }
+
+    private String normalizeFileName(String fileName) {
+        if (!StringUtils.hasText(fileName)) {
+            fileName = UUID.randomUUID().toString().replace("-", "") + ".xlsx";
+        }
+        fileName = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (!fileName.toLowerCase().endsWith(".xlsx")) {
+            fileName = fileName + ".xlsx";
+        }
+        return fileName;
+    }
+
+    private String trimSlash(String value) {
+        while (value.startsWith("/")) {
+            value = value.substring(1);
+        }
+        while (value.endsWith("/")) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value;
+    }
+
+    private String limitMessage(String message) {
+        if (!StringUtils.hasText(message)) {
+            return "导出失败";
+        }
+        return message.length() > 250 ? message.substring(0, 250) : message;
     }
 
     private static Map<String, String> buildSortFieldMapping() {

@@ -8,12 +8,34 @@ import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.model.vo.LocalExportFileDownload;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.File;
+
 public interface CommonExportTaskProcessService {
 
     /**
      * 创建导出任务。
      */
     ExportTaskVO createTask(ExportTaskDTO dto);
+
+    /**
+     * 仅创建导出任务，不在 core 侧提交执行；供业务系统 starter 远程创建任务使用。
+     */
+    ExportTaskVO createClientTask(ExportTaskDTO dto);
+
+    /**
+     * 将任务标记为处理中。
+     */
+    ExportTaskVO markProcessing(Long id);
+
+    /**
+     * 上传导出文件并将任务标记为成功。
+     */
+    ExportTaskVO uploadSuccess(Long id, File file, String fileName, String message);
+
+    /**
+     * 将任务标记为失败。
+     */
+    ExportTaskVO markFailure(Long id, String message);
 
     /**
      * 查询导出任务详情。

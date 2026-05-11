@@ -1,4 +1,4 @@
-package org.commons.exporting.domain.model;
+package org.commons.exporting.infrastructure.client.model;
 
 import lombok.Data;
 
@@ -6,11 +6,10 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * starter 暴露给业务系统的导出任务创建模型。
+ * SDK 发送给 core 服务的导出任务创建请求。
  */
 @Data
-public class ExportTaskCreateRequest {
-    private String taskNo;
+public class ExportTaskDTO {
     private String taskName;
     private String businessType;
     private String businessSystem;

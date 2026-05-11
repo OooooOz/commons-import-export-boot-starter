@@ -2,12 +2,14 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.ex-import</groupId>
-  <artifactId>commons-ex-importing-boot-starter</artifactId>
+    <artifactId>commons-ex-importing-sdk</artifactId>
   <version>1.0.0</version>
 
   <properties>
     <java.version>8</java.version>
     <boot.version>2.3.5.RELEASE</boot.version>
+    <spring-cloud-openfeign.version>2.2.5.RELEASE</spring-cloud-openfeign.version>
+    <feign-form.version>3.8.0</feign-form.version>
   </properties>
 
   <dependencies>
@@ -32,6 +34,16 @@
           <artifactId>spring-boot-starter-validation</artifactId>
           <version>${boot.version}</version>
       </dependency>
+      <dependency>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-starter-web</artifactId>
+          <version>${boot.version}</version>
+      </dependency>
+      <dependency>
+          <groupId>org.springframework</groupId>
+          <artifactId>spring-test</artifactId>
+          <version>5.2.10.RELEASE</version>
+      </dependency>
       <!-- Spring Boot 的自动装配所需要的依赖 -->
       <dependency>
           <groupId>org.springframework.boot</groupId>
@@ -45,16 +57,15 @@
           <version>3.1.0</version>
       </dependency>
       <dependency>
-          <groupId>com.ex-import</groupId>
-          <artifactId>common-ex-importing-core</artifactId>
-          <version>1.0.0</version>
+          <groupId>org.springframework.cloud</groupId>
+          <artifactId>spring-cloud-starter-openfeign</artifactId>
+          <version>${spring-cloud-openfeign.version}</version>
       </dependency>
-      <!--      <dependency>-->
-      <!--          <groupId>javax.servlet</groupId>-->
-      <!--          <artifactId>javax.servlet-api</artifactId>-->
-      <!--          <version>3.1.0</version>-->
-      <!--          <scope>provided</scope>-->
-      <!--      </dependency>-->
+      <dependency>
+          <groupId>io.github.openfeign.form</groupId>
+          <artifactId>feign-form-spring</artifactId>
+          <version>${feign-form.version}</version>
+      </dependency>
   </dependencies>
 
   <build>
