@@ -17,7 +17,7 @@ public class ExportStorageProperties {
     /** 本地存储根目录。 */
     private String localRoot = "./data/export-files";
     /** 本地文件下载地址前缀。 */
-    private String localDownloadUrl = "http://localhost:8091/api/export/task/local-file";
+    private String localDownloadUrl = "http://10.39.11.156:8091/api/export/task/local-file";
 
     /** OSS endpoint，例如 oss-cn-hangzhou.aliyuncs.com。 */
     private String endpoint;

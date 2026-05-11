@@ -6,54 +6,17 @@
     <groupId>com.ex-import</groupId>
     <artifactId>commons-import-export-boot-starter</artifactId>
     <version>1.0.0</version>
-    <packaging>pom</packaging> <!--以后导入的时候要使用的版本号，需要修改-->
+    <packaging>pom</packaging>
     <name>commons-import-export-boot-starter</name>
     <modules>
-        <module>commons-ex-importing-sdk</module>
+        <module>commons-importing-starter</module>
         <module>common-ex-importing-core</module>
+        <module>commons-exporting-sdk</module>
     </modules>
 
     <properties>
         <java.version>8</java.version>
-        <boot.version>2.3.5.RELEASE</boot.version>
-        <lombok.version>1.18.12</lombok.version>
-        <commons-lang3.version>3.11</commons-lang3.version>
     </properties>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-            <version>${boot.version}</version>
-        </dependency>
-        <!-- hutool -->
-        <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>5.8.22</version>
-        </dependency>
-        <!-- lombok -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>${lombok.version}</version>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- 配置文件点击可以跳转实体，主要是为了适配 IDEA -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-            <version>${boot.version}</version>
-        </dependency>
-        <!-- Apache 工具类 -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons-lang3.version}</version>
-        </dependency>
-    </dependencies>
     <build>
         <plugins>
             <plugin>

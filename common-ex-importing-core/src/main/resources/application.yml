@@ -31,7 +31,7 @@ common:
       type: local
       object-prefix: exports
       local-root: ./data/export-files
-      local-download-url: http://localhost:8091/api/export/task/local-file
+      local-download-url: http://10.39.11.156:8091/api/export/task/local-file
       # type: aliyun 时配置以下参数，敏感信息建议放入环境变量或配置中心
       # endpoint: oss-cn-hangzhou.aliyuncs.com
       # bucket-name: your-bucket
