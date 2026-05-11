@@ -50,16 +50,14 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity) {
-        if (entity == null) {
-            return null;
-        }
+        if (entity == null) return null;
         return BeanUtil.copyProperties(entity, ExportTaskVO.class);
     }
 
     private void saveWithGeneratedTaskNo(ExportTaskProcess entity) {
         DuplicateKeyException lastException = null;
         for (int i = 0; i < 5; i++) {
-            entity.setTaskNo(ExportTaskNoGenerator.generate());
+            entity.setTaskNo(ExportTaskNoGenerator.generateUniqueCostCode());
             try {
                 this.save(entity);
                 return;

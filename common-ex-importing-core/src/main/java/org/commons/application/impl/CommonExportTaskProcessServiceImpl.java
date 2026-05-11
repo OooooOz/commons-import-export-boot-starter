@@ -11,8 +11,8 @@ import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.enums.ExportTaskStatusEnum;
 import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.model.vo.LocalExportFileDownload;
-import org.commons.export.config.ExportStorageProperties;
 import org.commons.domain.service.ExportTaskProcessService;
+import org.commons.export.config.ExportStorageProperties;
 import org.commons.export.notify.ExportTaskNotifier;
 import org.commons.export.storage.ExportFileStorage;
 import org.commons.export.storage.LocalExportFileStorage;
@@ -90,9 +90,7 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     @Override
     public ExportTaskVO uploadSuccess(Long id, File file, String fileName, String message) {
         ExportTaskProcess task = exportTaskProcessService.getById(id);
-        if (task == null) {
-            throw new IllegalArgumentException("导出任务不存在，id=" + id);
-        }
+        if (task == null) throw new IllegalArgumentException("导出任务不存在，id=" + id);
         String normalizedFileName = normalizeFileName(fileName);
         String objectName = buildObjectName(task.getTaskNo(), normalizedFileName);
         StorageResult storageResult = exportFileStorage.upload(file, objectName, XLSX_CONTENT_TYPE);
@@ -142,13 +140,9 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     @Override
     public LocalExportFileDownload loadLocalFile(String objectName) {
         LocalExportFileStorage localExportFileStorage = localExportFileStorageProvider.getIfAvailable();
-        if (localExportFileStorage == null) {
-            return LocalExportFileDownload.notFound("当前未启用本地文件存储");
-        }
+        if (localExportFileStorage == null) return LocalExportFileDownload.notFound("当前未启用本地文件存储");
         File file = localExportFileStorage.getFile(objectName);
-        if (!file.exists() || !file.isFile()) {
-            return LocalExportFileDownload.notFound("文件不存在");
-        }
+        if (!file.exists() || !file.isFile()) return LocalExportFileDownload.notFound("文件不存在");
         return LocalExportFileDownload.success(file);
     }
 
@@ -164,32 +158,22 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
 
     private String buildOrderByClause(String sort, String order) {
         List<String> sortFields = splitCsv(sort);
-        if (sortFields.isEmpty()) {
-            return DEFAULT_ORDER_BY;
-        }
+        if (sortFields.isEmpty()) return DEFAULT_ORDER_BY;
         List<String> orderDirections = splitCsv(order);
         List<String> orderByItems = new ArrayList<>();
         for (int i = 0; i < sortFields.size(); i++) {
             String column = SORT_FIELD_MAPPING.get(sortFields.get(i));
-            if (column == null) {
-                continue;
-            }
+            if (column == null) continue;
             String direction = normalizeDirection(resolveDirection(orderDirections, i));
             orderByItems.add(column + " " + direction.toUpperCase(Locale.ROOT));
         }
-        if (orderByItems.isEmpty()) {
-            return DEFAULT_ORDER_BY;
-        }
+        if (orderByItems.isEmpty()) return DEFAULT_ORDER_BY;
         return String.join(", ", orderByItems);
     }
 
     private String resolveDirection(List<String> orderDirections, int index) {
-        if (orderDirections.isEmpty()) {
-            return DESC;
-        }
-        if (index < orderDirections.size()) {
-            return orderDirections.get(index);
-        }
+        if (orderDirections.isEmpty()) return DESC;
+        if (index < orderDirections.size()) return orderDirections.get(index);
         return orderDirections.get(orderDirections.size() - 1);
     }
 
@@ -198,9 +182,7 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     private List<String> splitCsv(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return Collections.emptyList();
-        }
+        if (value == null || value.trim().isEmpty()) return Collections.emptyList();
         return Arrays.stream(value.split(","))
                 .map(this::trimToNull)
                 .filter(java.util.Objects::nonNull)
@@ -208,24 +190,20 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     private String trimToNull(String value) {
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity) {
-        if (entity == null) {
-            return null;
-        }
+        if (entity == null) return null;
         return BeanUtil.copyProperties(entity, ExportTaskVO.class);
     }
 
     private void saveWithGeneratedTaskNo(ExportTaskProcess entity) {
         DuplicateKeyException lastException = null;
         for (int i = 0; i < 5; i++) {
-            entity.setTaskNo(ExportTaskNoGenerator.generate());
+            entity.setTaskNo(ExportTaskNoGenerator.generateUniqueCostCode());
             try {
                 exportTaskProcessService.save(entity);
                 return;
@@ -239,38 +217,26 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     private String buildObjectName(String taskNo, String fileName) {
         String date = new SimpleDateFormat("yyyyMMdd").format(new Date());
         String prefix = exportStorageProperties.getObjectPrefix();
-        if (!StringUtils.hasText(prefix)) {
-            prefix = "exports";
-        }
+        if (!StringUtils.hasText(prefix)) prefix = "exports";
         prefix = trimSlash(prefix);
         return prefix + "/" + date + "/" + taskNo + "-" + fileName;
     }
 
     private String normalizeFileName(String fileName) {
-        if (!StringUtils.hasText(fileName)) {
-            fileName = UUID.randomUUID().toString().replace("-", "") + ".xlsx";
-        }
+        if (!StringUtils.hasText(fileName)) fileName = UUID.randomUUID().toString().replace("-", "") + ".xlsx";
         fileName = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
-        if (!fileName.toLowerCase().endsWith(".xlsx")) {
-            fileName = fileName + ".xlsx";
-        }
+        if (!fileName.toLowerCase().endsWith(".xlsx")) fileName = fileName + ".xlsx";
         return fileName;
     }
 
     private String trimSlash(String value) {
-        while (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-        while (value.endsWith("/")) {
-            value = value.substring(0, value.length() - 1);
-        }
+        while (value.startsWith("/")) value = value.substring(1);
+        while (value.endsWith("/")) value = value.substring(0, value.length() - 1);
         return value;
     }
 
     private String limitMessage(String message) {
-        if (!StringUtils.hasText(message)) {
-            return "导出失败";
-        }
+        if (!StringUtils.hasText(message)) return "导出失败";
         return message.length() > 250 ? message.substring(0, 250) : message;
     }
 
