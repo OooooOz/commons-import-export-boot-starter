@@ -3,7 +3,6 @@ package org.commons.domain.model.dto;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
-import java.util.Date;
 import java.util.Map;
 
 @Data
@@ -35,21 +34,6 @@ public class ExportTaskDTO {
      * sheet名称
      */
     private String sheetName;
-
-    /**
-     * 文件路径
-     */
-    private String fileUrl;
-
-    /**
-     * 开始时间
-     */
-    private Date startTime;
-
-    /**
-     * 结束时间
-     */
-    private Date endTime;
 
     /**
      * 操作人

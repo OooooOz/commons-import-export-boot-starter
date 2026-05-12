@@ -10,6 +10,11 @@ import com.commons.exporting.infrastructure.context.AsyncExportContextContributo
 import com.commons.exporting.infrastructure.context.AsyncExportContextPropagator;
 import com.commons.exporting.infrastructure.context.CompositeAsyncExportContextPropagator;
 import com.commons.exporting.infrastructure.context.RequestHeaderAsyncExportContextContributor;
+import com.commons.exporting.infrastructure.file.BusinessExportFileUploader;
+import com.commons.exporting.infrastructure.file.BusinessExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.CoreExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.ExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.GeneratedFileUploadMode;
 import com.commons.exporting.infrastructure.handle.AsyncExportHandler;
 import com.commons.exporting.infrastructure.service.DefaultExporting;
 import com.commons.exporting.infrastructure.service.StarterAsyncExportExecutor;
@@ -70,6 +75,33 @@ public class DefaultExportingAutoConfiguration {
     }
 
     /**
+     * 注册导出文件上传器。
+     * <p>
+     * 支持两种内置模式：
+     * <ul>
+     *     <li>{@link GeneratedFileUploadMode#CORE}：将生成后的 Excel 文件上传回 core，由 core 负责最终存储；</li>
+     *     <li>{@link GeneratedFileUploadMode#BUSINESS}：由业务系统先上传到自身 OSS / MinIO，再调用
+     *     {@link RemoteExportTaskClient#reportSuccess(Long, String, String)} 回写最终文件地址。</li>
+     * </ul>
+     * 业务系统若声明了自定义 {@link ExportGeneratedFileUploader} Bean，将优先覆盖内置模式。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public ExportGeneratedFileUploader exportGeneratedFileUploader(RemoteExportTaskClient remoteExportTaskClient,
+                                                                   ExportCoreProperties exportCoreProperties,
+                                                                   ObjectProvider<BusinessExportFileUploader> businessExportFileUploaderProvider) {
+        GeneratedFileUploadMode uploadMode = exportCoreProperties.getGeneratedFileUploadMode();
+        if (uploadMode == null || uploadMode == GeneratedFileUploadMode.CORE) {
+            return new CoreExportGeneratedFileUploader(remoteExportTaskClient);
+        }
+        BusinessExportFileUploader businessExportFileUploader = businessExportFileUploaderProvider.getIfAvailable();
+        if (businessExportFileUploader == null) {
+            throw new IllegalStateException("当前已配置 common.export.core.generated-file-upload-mode=BUSINESS，但未声明 BusinessExportFileUploader Bean");
+        }
+        return new BusinessExportGeneratedFileUploader(remoteExportTaskClient, businessExportFileUploader);
+    }
+
+    /**
      * 注册异步导出上下文透传器。
      * <p>
      * 业务系统可声明一个或多个 {@link AsyncExportContextContributor} Bean，用于捕获并恢复租户、用户、
@@ -99,9 +131,11 @@ public class DefaultExportingAutoConfiguration {
     public StarterAsyncExportExecutor starterAsyncExportExecutor(RemoteExportTaskClient remoteExportTaskClient,
                                                                  ExportAsyncProperties exportAsyncProperties,
                                                                  AsyncExportContextPropagator asyncExportContextPropagator,
+                                                                 ExportGeneratedFileUploader exportGeneratedFileUploader,
                                                                  ObjectProvider<AsyncExportHandler<?>> handlersProvider) {
         List<AsyncExportHandler<?>> handlers = handlersProvider.orderedStream().collect(Collectors.toList());
-        return new StarterAsyncExportExecutor(remoteExportTaskClient, exportAsyncProperties, asyncExportContextPropagator, handlers);
+        return new StarterAsyncExportExecutor(remoteExportTaskClient, exportAsyncProperties,
+                asyncExportContextPropagator, exportGeneratedFileUploader, handlers);
     }
 
     @Bean

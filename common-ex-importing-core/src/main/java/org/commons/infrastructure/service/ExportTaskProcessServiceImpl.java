@@ -14,9 +14,13 @@ import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.service.ExportTaskProcessService;
 import org.commons.export.ExportTaskExecutor;
 import org.commons.infrastructure.util.ExportTaskNoGenerator;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.commons.infrastructure.util.ExportTaskRequestDedupLockManager;
+import org.commons.infrastructure.util.ExportTaskRequestFingerprintUtil;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author
@@ -26,17 +30,39 @@ import org.springframework.stereotype.Service;
 @Service
 public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessMapper, ExportTaskProcess> implements ExportTaskProcessService {
 
-    @Autowired
-    private ExportTaskExecutor exportTaskExecutor;
+    private static final List<Integer> REUSABLE_STATUSES = Arrays.asList(
+            ExportTaskStatusEnum.INIT.getCode(),
+            ExportTaskStatusEnum.PROCESSING.getCode());
+
+    private final ExportTaskExecutor exportTaskExecutor;
+    private final ExportTaskRequestDedupLockManager requestDedupLockManager;
+
+    public ExportTaskProcessServiceImpl(ExportTaskExecutor exportTaskExecutor,
+                                        ExportTaskRequestDedupLockManager requestDedupLockManager) {
+        this.exportTaskExecutor = exportTaskExecutor;
+        this.requestDedupLockManager = requestDedupLockManager;
+    }
 
     @Override
     public ExportTaskVO createTask(ExportTaskDTO dto) {
-        ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
-        entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
-        entity.setMessage("任务已创建，等待导出");
-        saveWithGeneratedTaskNo(entity);
-        exportTaskExecutor.submit(entity.getId(), dto);
-        return toVO(this.getById(entity.getId()));
+        String requestFingerprint = ExportTaskRequestFingerprintUtil.build(dto);
+        return requestDedupLockManager.execute(requestFingerprint, () -> {
+            ExportTaskProcess existing = findReusableTask(requestFingerprint);
+            if (existing != null) return toVO(existing, false);
+            ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
+            entity.setRequestFingerprint(requestFingerprint);
+            entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
+            entity.setMessage("任务已创建，等待导出");
+            saveWithGeneratedTaskNo(entity);
+            exportTaskExecutor.submit(entity.getId(), dto);
+            return toVO(this.getById(entity.getId()), true);
+        });
+    }
+
+    @Override
+    public ExportTaskProcess findReusableTask(String requestFingerprint) {
+        if (requestFingerprint == null || requestFingerprint.trim().isEmpty()) return null;
+        return baseMapper.selectLatestReusableTask(requestFingerprint, REUSABLE_STATUSES);
     }
 
     @Override
@@ -50,14 +76,20 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity) {
+        return toVO(entity, null);
+    }
+
+    private ExportTaskVO toVO(ExportTaskProcess entity, Boolean submitRequired) {
         if (entity == null) return null;
-        return BeanUtil.copyProperties(entity, ExportTaskVO.class);
+        ExportTaskVO vo = BeanUtil.copyProperties(entity, ExportTaskVO.class);
+        vo.setSubmitRequired(submitRequired);
+        return vo;
     }
 
     private void saveWithGeneratedTaskNo(ExportTaskProcess entity) {
         DuplicateKeyException lastException = null;
         for (int i = 0; i < 5; i++) {
-            entity.setTaskNo(ExportTaskNoGenerator.generateUniqueCostCode());
+            entity.setTaskNo(ExportTaskNoGenerator.generate());
             try {
                 this.save(entity);
                 return;

@@ -25,6 +25,13 @@ public interface ExportTaskProcessService extends IService<ExportTaskProcess> {
     ExportTaskVO createTask(ExportTaskDTO dto);
 
     /**
+     * 按请求指纹查询可复用的已有任务。
+     * <p>
+     * 仅复用 INIT / PROCESSING / SUCCESS 状态任务；FAIL 状态允许重新创建。
+     */
+    ExportTaskProcess findReusableTask(String requestFingerprint);
+
+    /**
      * 查询导出任务详情
      *
      * @param id 任务id

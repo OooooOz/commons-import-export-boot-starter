@@ -25,7 +25,8 @@ public class LargeExcelWriter {
                           Consumer<ExcelWriterBuilder> writerBuilderCustomizer,
                           PageDataLoader<T> loader,
                           int pageSize,
-                          long maxRowsPerSheet) {
+                          long maxRowsPerSheet,
+                          long maxQueryPages) {
         if (file == null) {
             throw new IllegalArgumentException("file不能为空");
         }
@@ -41,6 +42,9 @@ public class LargeExcelWriter {
         if (maxRowsPerSheet <= 0 || maxRowsPerSheet > 1048575L) {
             maxRowsPerSheet = 1048575L;
         }
+        if (maxQueryPages <= 0) {
+            maxQueryPages = 10000L;
+        }
 
         ExcelWriterBuilder writerBuilder = EasyExcel.write(file, headClass);
         if (writerBuilderCustomizer != null) {
@@ -55,9 +59,15 @@ public class LargeExcelWriter {
 
             long pageNo = 1L;
             while (true) {
+                if (pageNo > maxQueryPages) {
+                    throw new IllegalStateException("导出分页查询超过最大页数限制(" + maxQueryPages + ")，请检查queryPage是否正确使用pageNo分页，并在最后一页返回空集合或不足pageSize的数据");
+                }
                 List<T> pageData = loader.load(pageNo, pageSize);
                 if (pageData == null || pageData.isEmpty()) {
                     break;
+                }
+                if (pageData.size() > pageSize) {
+                    throw new IllegalStateException("分页查询返回条数(" + pageData.size() + ")不能大于pageSize(" + pageSize + ")");
                 }
 
                 int offset = 0;

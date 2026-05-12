@@ -2,7 +2,6 @@ package com.commons.exporting.domain.model;
 
 import lombok.Data;
 
-import java.util.Date;
 import java.util.Map;
 
 /**
@@ -10,6 +9,7 @@ import java.util.Map;
  * <p>
  * 该对象仅描述导出任务的业务属性，不暴露 {@code taskNo}。
  * 任务号由 core 服务在落库时统一生成并保证唯一。
+ * 对业务侧可见字段完全相同的请求，core 会按请求指纹进行判重，复用已有任务而不重复执行。
  */
 @Data
 public class ExportTaskCreateRequest {
@@ -37,21 +37,6 @@ public class ExportTaskCreateRequest {
      * sheet 名称，可为空；为空时使用处理器默认值。
      */
     private String sheetName;
-
-    /**
-     * 文件地址预留字段，通常由 core 在上传成功后回填最终下载地址。
-     */
-    private String fileUrl;
-
-    /**
-     * 业务侧期望记录的开始时间，可作为查询条件或展示字段。
-     */
-    private Date startTime;
-
-    /**
-     * 业务侧期望记录的结束时间，可作为查询条件或展示字段。
-     */
-    private Date endTime;
 
     /**
      * 导出任务发起人。

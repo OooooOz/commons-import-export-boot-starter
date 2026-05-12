@@ -19,5 +19,7 @@ public class ExportAsyncProperties {
     private int pageSize = 5000;
     /** 单 sheet 最大数据行数，Excel xlsx 上限为 1048576 行，需预留表头。 */
     private long maxRowsPerSheet = 1000000L;
+    /** 最大分页查询次数，防止业务分页异常时无限循环。 */
+    private long maxQueryPages = 10000L;
 }
 

@@ -21,5 +21,13 @@ public class ExportTaskVO {
     private Date startTime;
     private Date endTime;
     private String creator;
+
+    /**
+     * 是否需要由当前请求继续触发导出执行。
+     * <p>
+     * true 表示本次请求新建了任务，需要继续提交执行；
+     * false 表示复用了已有任务，无需重复执行。
+     */
+    private Boolean submitRequired;
 }
 

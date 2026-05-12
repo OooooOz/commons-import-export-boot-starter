@@ -43,5 +43,9 @@ public final class ExportTaskNoGenerator {
         // 组合时间戳和随机数
         return timestamp + String.valueOf(randomNumber);
     }
+
+    public static String generate() {
+        return "EXP" + generateUniqueCostCode();
+    }
 }
 

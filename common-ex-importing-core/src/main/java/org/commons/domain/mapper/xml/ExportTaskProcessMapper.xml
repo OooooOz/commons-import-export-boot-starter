@@ -17,6 +17,7 @@
         <result property="startTime" column="start_time"/>
         <result property="endTime" column="end_time"/>
         <result property="creator" column="creator"/>
+        <result property="requestFingerprint" column="request_fingerprint"/>
     </resultMap>
 
     <sql id="Base_Column_List">
@@ -31,7 +32,8 @@
         message,
         start_time,
         end_time,
-        creator
+        creator,
+        request_fingerprint
     </sql>
 
     <select id="selectTaskPage" resultMap="ExportTaskProcessResultMap">
@@ -60,6 +62,19 @@
                 ORDER BY id DESC
             </otherwise>
         </choose>
+    </select>
+
+    <select id="selectLatestReusableTask" resultMap="ExportTaskProcessResultMap">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM export_task_process
+        WHERE request_fingerprint = #{requestFingerprint}
+        AND status IN
+        <foreach collection="statuses" item="status" open="(" separator="," close=")">
+            #{status}
+        </foreach>
+        ORDER BY id DESC
+        LIMIT 1
     </select>
 
 </mapper>

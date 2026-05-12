@@ -2,6 +2,7 @@ package com.commons.exporting.infrastructure.client;
 
 import com.commons.exporting.infrastructure.client.model.BaseResponse;
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
+import com.commons.exporting.infrastructure.client.model.ExportTaskSuccessDTO;
 import com.commons.exporting.infrastructure.client.model.ExportTaskVO;
 import feign.Headers;
 import feign.Param;
@@ -37,5 +38,9 @@ public interface ExportTaskCoreFeignClient {
                                              @Param("file") File file,
                                              @Param("fileName") String fileName,
                                              @Param("message") String message);
+
+    @RequestLine("POST /api/export/task/client/{id}/success")
+    @Headers({"Content-Type: application/json", "Accept: application/json"})
+    BaseResponse<ExportTaskVO> reportSuccess(@Param("id") Long id, ExportTaskSuccessDTO dto);
 }
 

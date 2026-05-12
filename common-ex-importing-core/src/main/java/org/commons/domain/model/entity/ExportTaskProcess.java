@@ -1,6 +1,7 @@
 package org.commons.domain.model.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -76,6 +77,12 @@ public class ExportTaskProcess implements Serializable {
      * 操作人
      */
     private String creator;
+
+    /**
+     * 请求指纹，用于判重同一导出请求。
+     */
+    @JsonIgnore
+    private String requestFingerprint;
 
 
     @TableField(exist = false)

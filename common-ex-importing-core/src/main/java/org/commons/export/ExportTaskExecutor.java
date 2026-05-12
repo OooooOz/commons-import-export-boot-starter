@@ -156,7 +156,8 @@ public class ExportTaskExecutor {
                 writerBuilder -> handler.customizeWriter(dto, writerBuilder),
                 (pageNo, pageSize) -> handler.queryPage(dto, pageNo, pageSize),
                 asyncProperties.getPageSize(),
-                asyncProperties.getMaxRowsPerSheet());
+                asyncProperties.getMaxRowsPerSheet(),
+                asyncProperties.getMaxQueryPages());
     }
 
     private String buildObjectName(String taskNo, String fileName) {

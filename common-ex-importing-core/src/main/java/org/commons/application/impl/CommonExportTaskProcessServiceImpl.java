@@ -18,6 +18,8 @@ import org.commons.export.storage.ExportFileStorage;
 import org.commons.export.storage.LocalExportFileStorage;
 import org.commons.export.storage.StorageResult;
 import org.commons.infrastructure.util.ExportTaskNoGenerator;
+import org.commons.infrastructure.util.ExportTaskRequestDedupLockManager;
+import org.commons.infrastructure.util.ExportTaskRequestFingerprintUtil;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -45,17 +47,20 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     private final ObjectProvider<LocalExportFileStorage> localExportFileStorageProvider;
     private final ExportFileStorage exportFileStorage;
     private final ExportStorageProperties exportStorageProperties;
+    private final ExportTaskRequestDedupLockManager requestDedupLockManager;
 
     public CommonExportTaskProcessServiceImpl(ExportTaskProcessService exportTaskProcessService,
                                               ExportTaskNotifier exportTaskNotifier,
                                                ObjectProvider<LocalExportFileStorage> localExportFileStorageProvider,
                                                ExportFileStorage exportFileStorage,
-                                               ExportStorageProperties exportStorageProperties) {
+                                              ExportStorageProperties exportStorageProperties,
+                                              ExportTaskRequestDedupLockManager requestDedupLockManager) {
         this.exportTaskProcessService = exportTaskProcessService;
         this.exportTaskNotifier = exportTaskNotifier;
         this.localExportFileStorageProvider = localExportFileStorageProvider;
         this.exportFileStorage = exportFileStorage;
         this.exportStorageProperties = exportStorageProperties;
+        this.requestDedupLockManager = requestDedupLockManager;
     }
 
     @Override
@@ -65,13 +70,19 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
 
     @Override
     public ExportTaskVO createClientTask(ExportTaskDTO dto) {
-        ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
-        entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
-        entity.setMessage("任务已创建，等待业务系统导出");
-        saveWithGeneratedTaskNo(entity);
-        ExportTaskProcess latest = exportTaskProcessService.getById(entity.getId());
-        exportTaskNotifier.notify(latest);
-        return toVO(latest);
+        String requestFingerprint = ExportTaskRequestFingerprintUtil.build(dto);
+        return requestDedupLockManager.execute(requestFingerprint, () -> {
+            ExportTaskProcess existing = exportTaskProcessService.findReusableTask(requestFingerprint);
+            if (existing != null) return toVO(existing, false);
+            ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
+            entity.setRequestFingerprint(requestFingerprint);
+            entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
+            entity.setMessage("任务已创建，等待业务系统导出");
+            saveWithGeneratedTaskNo(entity);
+            ExportTaskProcess latest = exportTaskProcessService.getById(entity.getId());
+            exportTaskNotifier.notify(latest);
+            return toVO(latest, true);
+        });
     }
 
     @Override
@@ -95,15 +106,28 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         String objectName = buildObjectName(task.getTaskNo(), normalizedFileName);
         StorageResult storageResult = exportFileStorage.upload(file, objectName, XLSX_CONTENT_TYPE);
 
+        return finishSuccess(task, normalizedFileName, storageResult.getUrl(), message);
+    }
+
+    @Override
+    public ExportTaskVO reportSuccess(Long id, String fileName, String fileUrl, String message) {
+        ExportTaskProcess task = exportTaskProcessService.getById(id);
+        if (task == null) throw new IllegalArgumentException("导出任务不存在，id=" + id);
+        if (!StringUtils.hasText(fileUrl)) throw new IllegalArgumentException("fileUrl不能为空");
+        String normalizedFileName = normalizeFileName(fileName);
+        return finishSuccess(task, normalizedFileName, fileUrl.trim(), message);
+    }
+
+    private ExportTaskVO finishSuccess(ExportTaskProcess task, String fileName, String fileUrl, String message) {
         ExportTaskProcess update = new ExportTaskProcess();
-        update.setId(id);
+        update.setId(task.getId());
         update.setStatus(ExportTaskStatusEnum.SUCCESS.getCode());
-        update.setFileName(normalizedFileName);
-        update.setFileUrl(storageResult.getUrl());
+        update.setFileName(fileName);
+        update.setFileUrl(fileUrl);
         update.setMessage(StringUtils.hasText(message) ? message : "导出完成");
         update.setEndTime(new Date());
         exportTaskProcessService.updateById(update);
-        ExportTaskProcess latest = exportTaskProcessService.getById(id);
+        ExportTaskProcess latest = exportTaskProcessService.getById(task.getId());
         exportTaskNotifier.notify(latest);
         return toVO(latest);
     }
@@ -196,14 +220,20 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity) {
+        return toVO(entity, null);
+    }
+
+    private ExportTaskVO toVO(ExportTaskProcess entity, Boolean submitRequired) {
         if (entity == null) return null;
-        return BeanUtil.copyProperties(entity, ExportTaskVO.class);
+        ExportTaskVO vo = BeanUtil.copyProperties(entity, ExportTaskVO.class);
+        vo.setSubmitRequired(submitRequired);
+        return vo;
     }
 
     private void saveWithGeneratedTaskNo(ExportTaskProcess entity) {
         DuplicateKeyException lastException = null;
         for (int i = 0; i < 5; i++) {
-            entity.setTaskNo(ExportTaskNoGenerator.generateUniqueCostCode());
+            entity.setTaskNo(ExportTaskNoGenerator.generate());
             try {
                 exportTaskProcessService.save(entity);
                 return;

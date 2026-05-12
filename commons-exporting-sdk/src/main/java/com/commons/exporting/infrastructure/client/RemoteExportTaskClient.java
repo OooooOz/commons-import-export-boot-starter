@@ -2,6 +2,7 @@ package com.commons.exporting.infrastructure.client;
 
 import com.commons.exporting.infrastructure.client.model.BaseResponse;
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
+import com.commons.exporting.infrastructure.client.model.ExportTaskSuccessDTO;
 import com.commons.exporting.infrastructure.client.model.ExportTaskVO;
 import org.springframework.util.StringUtils;
 
@@ -40,6 +41,18 @@ public class RemoteExportTaskClient {
 
     public void uploadSuccess(Long id, File file, String fileName) {
         unwrap(feignClient.uploadSuccess(id, file, fileName, "导出完成"));
+    }
+
+    public void reportSuccess(Long id, String fileName, String fileUrl) {
+        reportSuccess(id, fileName, fileUrl, "导出完成");
+    }
+
+    public void reportSuccess(Long id, String fileName, String fileUrl, String message) {
+        ExportTaskSuccessDTO dto = new ExportTaskSuccessDTO();
+        dto.setFileName(fileName);
+        dto.setFileUrl(fileUrl);
+        dto.setMessage(StringUtils.hasText(message) ? message : "导出完成");
+        unwrap(feignClient.reportSuccess(id, dto));
     }
 
     private ExportTaskVO unwrap(BaseResponse<ExportTaskVO> body) {

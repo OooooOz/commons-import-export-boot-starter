@@ -58,6 +58,7 @@ common:
       core-url: http://localhost:8091
       connect-timeout-millis: 5000
       read-timeout-millis: 60000
+      generated-file-upload-mode: core
     async:
       core-pool-size: 4
       max-pool-size: 8
@@ -163,6 +164,13 @@ public class OrderExportController {
 - `status`：当前任务状态
 - `fileName` / `fileUrl`：导出完成后可用
 
+判重说明：
+
+- core 会基于业务侧可见请求字段生成请求指纹：`businessSystem`、`businessType`、`taskName`、`fileName`、`creator`、`extMap`
+- 当这些字段完全相同时，会直接复用已有任务，不会重复创建、重复执行导出
+- 当前默认复用状态为：`INIT`、`PROCESSING`
+- 若历史任务为 `FAIL`、`SUCCESS`，则允许再次创建并重新执行
+
 ### 6. 异步线程中的业务上下文透传
 
 如果业务分页查询依赖这些基于 `ThreadLocal` 的上下文：
@@ -237,6 +245,92 @@ public class BusinessAsyncExportContextContributor implements AsyncExportContext
 3. starter 在业务系统本地匹配 `AsyncExportHandler`，分页查询业务数据并生成 Excel。
 4. starter 将处理中、成功/失败状态和导出文件回写到 core。
 5. 前端继续通过 core 的导出任务查询、SSE 订阅和下载接口查看任务状态与文件。
+
+### 8. 业务系统上传到自身 OSS
+
+SDK 现在支持两种内置控制方式：
+
+- `common.export.core.generated-file-upload-mode=core`：默认模式，先把本地生成的 Excel 临时文件上传回 core，再由 core 按自身配置决定落到本地存储或 core
+  自己的 OSS。
+- `common.export.core.generated-file-upload-mode=business`：由业务系统把文件上传到自己的 OSS / MinIO，再把最终 `fileUrl` 回写给 core。
+
+如果你选择 `business` 模式，则需要在业务系统实现 `BusinessExportFileUploader`：
+
+```java
+
+@Component
+public class BusinessOssExportFileUploader implements BusinessExportFileUploader {
+
+  private final OssUploadService ossUploadService;
+
+  public BusinessOssExportFileUploader(OssUploadService ossUploadService) {
+    this.ossUploadService = ossUploadService;
+  }
+
+  @Override
+  public String upload(ExportTaskCreateRequest request, File file, String fileName) {
+    return ossUploadService.upload(file, "exports/" + fileName);
+  }
+}
+```
+
+此时 SDK 会自动：
+
+1. 在业务系统本地生成 Excel
+2. 调用你实现的 `BusinessExportFileUploader`
+3. 拿到业务 OSS 返回的 `fileUrl`
+4. 调用 core 的 `/api/export/task/client/{id}/success` 回写成功状态和文件地址
+
+如果你希望进一步按业务自定义整个上传回写流程，也可以直接覆盖 `ExportGeneratedFileUploader` Bean：
+
+```java
+
+@Component
+public class BusinessOssExportGeneratedFileUploader implements ExportGeneratedFileUploader {
+
+  private final RemoteExportTaskClient remoteExportTaskClient;
+  private final OssUploadService ossUploadService;
+
+  public BusinessOssExportGeneratedFileUploader(RemoteExportTaskClient remoteExportTaskClient,
+                                                OssUploadService ossUploadService) {
+    this.remoteExportTaskClient = remoteExportTaskClient;
+    this.ossUploadService = ossUploadService;
+  }
+
+  @Override
+  public void upload(Long taskId, ExportTaskCreateRequest request, File file, String fileName) {
+    String fileUrl = ossUploadService.upload(file, "exports/" + fileName);
+    remoteExportTaskClient.reportSuccess(taskId, fileName, fileUrl);
+  }
+}
+```
+
+这样处理后：
+
+- Excel 仍然由业务系统本地生成
+- 文件上传到业务系统自己的 OSS
+- core 只保存任务状态、文件名和 `fileUrl`
+- 前端仍然直接使用 `fileUrl` 下载，无需改造页面
+
+优先级说明：
+
+1. **自定义 `ExportGeneratedFileUploader` Bean**：优先级最高，完全由业务系统接管
+2. `generated-file-upload-mode=business`：使用内置“业务侧上传 + core 回写 URL”模式
+3. `generated-file-upload-mode=core`：使用内置“上传到 core，由 core 存储”模式
+
+对应地，core 新增了一个仅回写文件地址的接口：
+
+- `POST /api/export/task/client/{id}/success`
+
+请求体示例：
+
+```json
+{
+  "fileName": "订单导出.xlsx",
+  "fileUrl": "https://your-business-oss.example.com/exports/order-20260511.xlsx",
+  "message": "导出完成"
+}
+```
 
 ## Excel 导入接入
 

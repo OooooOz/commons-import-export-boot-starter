@@ -33,6 +33,11 @@ public interface CommonExportTaskProcessService {
     ExportTaskVO uploadSuccess(Long id, File file, String fileName, String message);
 
     /**
+     * 业务系统已自行上传文件后，仅回写文件地址并将任务标记为成功。
+     */
+    ExportTaskVO reportSuccess(Long id, String fileName, String fileUrl, String message);
+
+    /**
      * 将任务标记为失败。
      */
     ExportTaskVO markFailure(Long id, String message);

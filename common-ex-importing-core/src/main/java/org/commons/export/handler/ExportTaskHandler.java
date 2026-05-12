@@ -49,7 +49,11 @@ public interface ExportTaskHandler<T> {
     }
 
     /**
-     * 分页查询业务数据。pageNo 从 1 开始；返回空集合表示结束。
+     * 分页查询业务数据。
+     * <p>
+     * {@code pageNo} 从 1 开始，必须真正参与业务分页查询；
+     * 返回空集合，或返回条数小于 {@code pageSize} 时表示结束。
+     * 若忽略 {@code pageNo} 持续返回满页数据，导出线程会触发最大分页次数保护并失败。
      */
     List<T> queryPage(ExportTaskDTO dto, long pageNo, int pageSize);
 }

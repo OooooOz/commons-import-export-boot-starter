@@ -7,6 +7,8 @@ import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
 import com.commons.exporting.infrastructure.context.AsyncExportContextPropagator;
 import com.commons.exporting.infrastructure.context.AsyncExportContextSnapshot;
 import com.commons.exporting.infrastructure.excel.LargeExcelWriter;
+import com.commons.exporting.infrastructure.file.CoreExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.ExportGeneratedFileUploader;
 import com.commons.exporting.infrastructure.handle.AsyncExportHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
@@ -30,6 +32,7 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
     private final RemoteExportTaskClient remoteExportTaskClient;
     private final ExportAsyncProperties asyncProperties;
     private final AsyncExportContextPropagator asyncExportContextPropagator;
+    private final ExportGeneratedFileUploader exportGeneratedFileUploader;
     private final LargeExcelWriter excelWriter = new LargeExcelWriter();
     private final Map<String, AsyncExportHandler<?>> handlerMap;
     private ThreadPoolTaskExecutor executor;
@@ -38,9 +41,18 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
                                       ExportAsyncProperties asyncProperties,
                                       AsyncExportContextPropagator asyncExportContextPropagator,
                                       List<AsyncExportHandler<?>> handlers) {
+        this(remoteExportTaskClient, asyncProperties, asyncExportContextPropagator, new CoreExportGeneratedFileUploader(remoteExportTaskClient), handlers);
+    }
+
+    public StarterAsyncExportExecutor(RemoteExportTaskClient remoteExportTaskClient,
+                                      ExportAsyncProperties asyncProperties,
+                                      AsyncExportContextPropagator asyncExportContextPropagator,
+                                      ExportGeneratedFileUploader exportGeneratedFileUploader,
+                                      List<AsyncExportHandler<?>> handlers) {
         this.remoteExportTaskClient = remoteExportTaskClient;
         this.asyncProperties = asyncProperties;
         this.asyncExportContextPropagator = asyncExportContextPropagator;
+        this.exportGeneratedFileUploader = exportGeneratedFileUploader;
         this.handlerMap = buildHandlerMap(handlers);
     }
 
@@ -101,7 +113,7 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
             String fileName = normalizeFileName(StringUtils.hasText(request.getFileName()) ? request.getFileName() : handler.fileName(request));
             tempFile = File.createTempFile("starter-export-" + safeTaskId(taskId) + "-", ".xlsx");
             writeExcel(tempFile, request, handler);
-            remoteExportTaskClient.uploadSuccess(taskId, tempFile, fileName);
+            exportGeneratedFileUploader.upload(taskId, request, tempFile, fileName);
         } catch (Exception e) {
             log.error("starter导出任务执行失败，taskId={}", taskId, e);
             try {

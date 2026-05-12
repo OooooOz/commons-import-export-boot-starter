@@ -45,6 +45,8 @@ public class LargeExcelWriter {
             while (true) {
                 List<T> pageData = loader.load(pageNo, pageSize);
                 if (pageData == null || pageData.isEmpty()) break;
+                if (pageData.size() > pageSize)
+                    throw new IllegalStateException("分页查询返回条数(" + pageData.size() + ")不能大于pageSize(" + pageSize + ")");
 
                 int offset = 0;
                 while (offset < pageData.size()) {

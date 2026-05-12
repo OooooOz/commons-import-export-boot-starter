@@ -23,5 +23,6 @@ public class ExportTaskVO {
     private Date startTime;
     private Date endTime;
     private String creator;
+    private Boolean submitRequired;
 }
 

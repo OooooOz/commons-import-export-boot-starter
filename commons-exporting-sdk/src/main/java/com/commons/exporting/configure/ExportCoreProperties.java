@@ -1,6 +1,7 @@
 package com.commons.exporting.configure;
 
 import lombok.Data;
+import com.commons.exporting.infrastructure.file.GeneratedFileUploadMode;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -25,5 +26,14 @@ public class ExportCoreProperties {
      * HTTP 读取超时，单位毫秒。
      */
     private int readTimeoutMillis = 60000;
+
+    /**
+     * 导出生成文件上传模式。
+     * <p>
+     * 默认为 {@link GeneratedFileUploadMode#CORE}，即先上传到 core，再由 core 负责最终存储。
+     * 若配置为 {@link GeneratedFileUploadMode#BUSINESS}，则需要业务系统额外实现
+     * {@code BusinessExportFileUploader}，由业务系统上传到自身 OSS / MinIO 后回写文件地址。
+     */
+    private GeneratedFileUploadMode generatedFileUploadMode = GeneratedFileUploadMode.CORE;
 }
 

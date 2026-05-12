@@ -31,7 +31,8 @@ public class DefaultExporting implements Exporting {
         ExportTaskVO task = remoteExportTaskClient.createTask(toDto(safeRequest));
         ExportTaskInfo info = toInfo(task);
         safeRequest.setFileName(info.getFileName());
-        starterAsyncExportExecutor.submit(info.getId(), safeRequest);
+        if (task == null || task.getSubmitRequired() == null || Boolean.TRUE.equals(task.getSubmitRequired()))
+            starterAsyncExportExecutor.submit(info.getId(), safeRequest);
         return info;
     }
 
@@ -51,9 +52,6 @@ public class DefaultExporting implements Exporting {
         dto.setBusinessSystem(request.getBusinessSystem());
         dto.setFileName(request.getFileName());
         dto.setSheetName(request.getSheetName());
-        dto.setFileUrl(request.getFileUrl());
-        dto.setStartTime(request.getStartTime());
-        dto.setEndTime(request.getEndTime());
         dto.setCreator(request.getCreator());
         dto.setExtMap(request.getExtMap());
         return dto;

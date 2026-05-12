@@ -72,7 +72,9 @@ public interface AsyncExportHandler<T> {
     /**
      * 分页查询业务数据。
      * <p>
-     * 当返回空集合时，starter 认为当前分页已无更多数据并结束导出。
+     * {@code pageNo} 从 1 开始，必须真正参与业务分页查询；
+     * 当返回空集合或返回条数小于 {@code pageSize} 时，starter 认为当前分页已无更多数据并结束导出。
+     * 若忽略 {@code pageNo} 持续返回满页数据，导出线程会触发最大分页次数保护并失败。
      *
      * @param request 导出请求
      * @param pageNo 当前页码，从 1 开始
