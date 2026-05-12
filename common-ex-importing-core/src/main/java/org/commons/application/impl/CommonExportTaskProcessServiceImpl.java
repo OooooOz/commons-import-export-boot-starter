@@ -1,6 +1,7 @@
 package org.commons.application.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
@@ -92,7 +93,10 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         update.setStatus(ExportTaskStatusEnum.PROCESSING.getCode());
         update.setStartTime(new Date());
         update.setMessage("导出处理中");
-        exportTaskProcessService.updateById(update);
+        LambdaUpdateWrapper<ExportTaskProcess> wrapper = new LambdaUpdateWrapper<ExportTaskProcess>()
+                .eq(ExportTaskProcess::getId, id)
+                .eq(ExportTaskProcess::getStatus, ExportTaskStatusEnum.INIT.getCode());
+        exportTaskProcessService.update(update, wrapper);
         ExportTaskProcess latest = exportTaskProcessService.getById(id);
         exportTaskNotifier.notify(latest);
         return toVO(latest);
@@ -126,7 +130,12 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         update.setFileUrl(fileUrl);
         update.setMessage(StringUtils.hasText(message) ? message : "导出完成");
         update.setEndTime(new Date());
-        exportTaskProcessService.updateById(update);
+        LambdaUpdateWrapper<ExportTaskProcess> wrapper = new LambdaUpdateWrapper<ExportTaskProcess>()
+                .eq(ExportTaskProcess::getId, task.getId())
+                .in(ExportTaskProcess::getStatus,
+                        ExportTaskStatusEnum.INIT.getCode(),
+                        ExportTaskStatusEnum.PROCESSING.getCode());
+        exportTaskProcessService.update(update, wrapper);
         ExportTaskProcess latest = exportTaskProcessService.getById(task.getId());
         exportTaskNotifier.notify(latest);
         return toVO(latest);
@@ -139,7 +148,12 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         update.setStatus(ExportTaskStatusEnum.FAIL.getCode());
         update.setMessage(limitMessage(message));
         update.setEndTime(new Date());
-        exportTaskProcessService.updateById(update);
+        LambdaUpdateWrapper<ExportTaskProcess> wrapper = new LambdaUpdateWrapper<ExportTaskProcess>()
+                .eq(ExportTaskProcess::getId, id)
+                .in(ExportTaskProcess::getStatus,
+                        ExportTaskStatusEnum.INIT.getCode(),
+                        ExportTaskStatusEnum.PROCESSING.getCode());
+        exportTaskProcessService.update(update, wrapper);
         ExportTaskProcess latest = exportTaskProcessService.getById(id);
         exportTaskNotifier.notify(latest);
         return toVO(latest);

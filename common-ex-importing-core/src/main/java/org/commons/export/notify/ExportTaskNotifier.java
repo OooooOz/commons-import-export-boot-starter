@@ -67,6 +67,9 @@ public class ExportTaskNotifier {
         CopyOnWriteArrayList<SseEmitter> list = emitters.get(key);
         if (list != null) {
             list.remove(emitter);
+            if (list.isEmpty()) {
+                emitters.remove(key, list);
+            }
         }
     }
 }

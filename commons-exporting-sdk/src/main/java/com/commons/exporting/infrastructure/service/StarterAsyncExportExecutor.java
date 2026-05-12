@@ -83,9 +83,10 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
     public void submit(Long taskId, ExportTaskCreateRequest request) {
         Executor target = executor;
         if (target == null) throw new IllegalStateException("导出线程池未初始化");
+        ExportTaskCreateRequest safeRequest = snapshotRequest(request);
         AsyncExportContextSnapshot snapshot = asyncExportContextPropagator.capture();
         long submitThreadId = Thread.currentThread().getId();
-        target.execute(() -> runTaskWithContext(snapshot, submitThreadId, taskId, request));
+        target.execute(() -> runTaskWithContext(snapshot, submitThreadId, taskId, safeRequest));
     }
 
     private void runTaskWithContext(AsyncExportContextSnapshot snapshot, long submitThreadId, Long taskId, ExportTaskCreateRequest request) {
@@ -174,6 +175,21 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
     private String limitMessage(String message) {
         if (!StringUtils.hasText(message)) return "导出失败";
         return message.length() > 250 ? message.substring(0, 250) : message;
+    }
+
+    private ExportTaskCreateRequest snapshotRequest(ExportTaskCreateRequest request) {
+        if (request == null) return new ExportTaskCreateRequest();
+        ExportTaskCreateRequest snapshot = new ExportTaskCreateRequest();
+        snapshot.setTaskName(request.getTaskName());
+        snapshot.setBusinessType(request.getBusinessType());
+        snapshot.setBusinessSystem(request.getBusinessSystem());
+        snapshot.setFileName(request.getFileName());
+        snapshot.setSheetName(request.getSheetName());
+        snapshot.setCreator(request.getCreator());
+        if (request.getExtMap() != null) {
+            snapshot.setExtMap(new LinkedHashMap<String, Object>(request.getExtMap()));
+        }
+        return snapshot;
     }
 }
 
