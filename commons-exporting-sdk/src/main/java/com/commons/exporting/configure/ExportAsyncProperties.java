@@ -35,5 +35,10 @@ public class ExportAsyncProperties {
      * 单个 sheet 允许写入的最大行数。
      */
     private long maxRowsPerSheet = 1000000L;
+
+    /**
+     * 最大分页查询次数，防止业务分页异常时无限循环。
+     */
+    private long maxQueryPages = 10000L;
 }
 

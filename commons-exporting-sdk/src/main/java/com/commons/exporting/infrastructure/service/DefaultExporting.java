@@ -8,6 +8,8 @@ import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
 import com.commons.exporting.infrastructure.client.model.ExportTaskVO;
 
+import java.util.LinkedHashMap;
+
 /**
  * {@link Exporting} 的默认实现。
  * <p>
@@ -27,11 +29,11 @@ public class DefaultExporting implements Exporting {
 
     @Override
     public ExportTaskInfo createTask(ExportTaskCreateRequest request) {
-        ExportTaskCreateRequest safeRequest = request == null ? new ExportTaskCreateRequest() : request;
+        ExportTaskCreateRequest safeRequest = snapshotRequest(request);
         ExportTaskVO task = remoteExportTaskClient.createTask(toDto(safeRequest));
         ExportTaskInfo info = toInfo(task);
         safeRequest.setFileName(info.getFileName());
-        if (task == null || task.getSubmitRequired() == null || Boolean.TRUE.equals(task.getSubmitRequired()))
+        if (task == null || task.getSubmitRequired() == null || task.getSubmitRequired())
             starterAsyncExportExecutor.submit(info.getId(), safeRequest);
         return info;
     }
@@ -76,6 +78,23 @@ public class DefaultExporting implements Exporting {
         info.setEndTime(vo.getEndTime());
         info.setCreator(vo.getCreator());
         return info;
+    }
+
+    private ExportTaskCreateRequest snapshotRequest(ExportTaskCreateRequest request) {
+        if (request == null) {
+            return new ExportTaskCreateRequest();
+        }
+        ExportTaskCreateRequest snapshot = new ExportTaskCreateRequest();
+        snapshot.setTaskName(request.getTaskName());
+        snapshot.setBusinessType(request.getBusinessType());
+        snapshot.setBusinessSystem(request.getBusinessSystem());
+        snapshot.setFileName(request.getFileName());
+        snapshot.setSheetName(request.getSheetName());
+        snapshot.setCreator(request.getCreator());
+        if (request.getExtMap() != null) {
+            snapshot.setExtMap(new LinkedHashMap<>(request.getExtMap()));
+        }
+        return snapshot;
     }
 }
 

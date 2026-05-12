@@ -17,8 +17,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
+import java.lang.reflect.Array;
 import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -29,6 +31,8 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 @Slf4j
 public class StarterAsyncExportExecutor implements InitializingBean, DisposableBean {
+    private static final String EXPORT_REJECTED_MESSAGE = "导出任务过多，请稍后重试";
+
     private final RemoteExportTaskClient remoteExportTaskClient;
     private final ExportAsyncProperties asyncProperties;
     private final AsyncExportContextPropagator asyncExportContextPropagator;
@@ -63,7 +67,7 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         taskExecutor.setCorePoolSize(asyncProperties.getCorePoolSize());
         taskExecutor.setMaxPoolSize(asyncProperties.getMaxPoolSize());
         taskExecutor.setQueueCapacity(asyncProperties.getQueueCapacity());
-        taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         taskExecutor.initialize();
         executor = taskExecutor;
         log.info("starter导出任务线程池初始化完成，handlers={}", handlerMap.keySet());
@@ -86,7 +90,16 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         ExportTaskCreateRequest safeRequest = snapshotRequest(request);
         AsyncExportContextSnapshot snapshot = asyncExportContextPropagator.capture();
         long submitThreadId = Thread.currentThread().getId();
-        target.execute(() -> runTaskWithContext(snapshot, submitThreadId, taskId, safeRequest));
+        try {
+            target.execute(() -> runTaskWithContext(snapshot, submitThreadId, taskId, safeRequest));
+        } catch (RejectedExecutionException e) {
+            log.warn("starter导出线程池已满，拒绝接收任务，taskId={}", taskId, e);
+            try {
+                remoteExportTaskClient.markFailure(taskId, EXPORT_REJECTED_MESSAGE);
+            } catch (Exception remoteException) {
+                log.error("导出任务被拒绝后回写失败状态到core失败，taskId={}", taskId, remoteException);
+            }
+        }
     }
 
     private void runTaskWithContext(AsyncExportContextSnapshot snapshot, long submitThreadId, Long taskId, ExportTaskCreateRequest request) {
@@ -187,9 +200,68 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         snapshot.setSheetName(request.getSheetName());
         snapshot.setCreator(request.getCreator());
         if (request.getExtMap() != null) {
-            snapshot.setExtMap(new LinkedHashMap<String, Object>(request.getExtMap()));
+            snapshot.setExtMap(copyMap(request.getExtMap()));
         }
         return snapshot;
+    }
+
+    private LinkedHashMap<String, Object> copyMap(Map<String, Object> source) {
+        LinkedHashMap<String, Object> target = new LinkedHashMap<String, Object>(source.size());
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            target.put(entry.getKey(), deepCopyValue(entry.getValue()));
+        }
+        return target;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object deepCopyValue(Object value) {
+        if (value == null) return null;
+        if (value instanceof String || value instanceof Number || value instanceof Boolean || value instanceof Character || value instanceof Enum) {
+            return value;
+        }
+        if (value instanceof Date) {
+            return new Date(((Date) value).getTime());
+        }
+        if (value instanceof Map) {
+            LinkedHashMap<String, Object> copy = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                copy.put(String.valueOf(entry.getKey()), deepCopyValue(entry.getValue()));
+            }
+            return copy;
+        }
+        if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            List<Object> copy = new ArrayList<>(list.size());
+            for (Object item : list) {
+                copy.add(deepCopyValue(item));
+            }
+            return copy;
+        }
+        if (value instanceof Set) {
+            Set<?> set = (Set<?>) value;
+            Set<Object> copy = new LinkedHashSet<>(set.size());
+            for (Object item : set) {
+                copy.add(deepCopyValue(item));
+            }
+            return copy;
+        }
+        if (value instanceof Collection) {
+            Collection<?> collection = (Collection<?>) value;
+            List<Object> copy = new ArrayList<>(collection.size());
+            for (Object item : collection) {
+                copy.add(deepCopyValue(item));
+            }
+            return copy;
+        }
+        if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            Object copy = Array.newInstance(value.getClass().getComponentType(), length);
+            for (int i = 0; i < length; i++) {
+                Array.set(copy, i, deepCopyValue(Array.get(value, i)));
+            }
+            return copy;
+        }
+        return value;
     }
 }
 

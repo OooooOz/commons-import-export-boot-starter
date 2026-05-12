@@ -20,9 +20,11 @@ import org.springframework.util.StringUtils;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.File;
+import java.lang.reflect.Array;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 
 /**
@@ -32,6 +34,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Component
 public class ExportTaskExecutor {
     private static final String XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    private static final String EXPORT_REJECTED_MESSAGE = "导出任务过多，请稍后重试";
 
     private final ExportTaskProcessMapper taskMapper;
     private final ExportFileStorage fileStorage;
@@ -63,7 +66,7 @@ public class ExportTaskExecutor {
         taskExecutor.setCorePoolSize(asyncProperties.getCorePoolSize());
         taskExecutor.setMaxPoolSize(asyncProperties.getMaxPoolSize());
         taskExecutor.setQueueCapacity(asyncProperties.getQueueCapacity());
-        taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         taskExecutor.initialize();
         executor = taskExecutor;
         log.info("导出任务线程池初始化完成，handlers={}", handlerMap.keySet());
@@ -81,7 +84,13 @@ public class ExportTaskExecutor {
         if (target == null) {
             throw new IllegalStateException("导出线程池未初始化");
         }
-        target.execute(() -> runTask(taskId, dto));
+        ExportTaskDTO safeDto = snapshotDto(dto);
+        try {
+            target.execute(() -> runTask(taskId, safeDto));
+        } catch (RejectedExecutionException e) {
+            log.warn("导出线程池已满，拒绝接收任务，taskId={}", taskId, e);
+            markFailure(taskId, EXPORT_REJECTED_MESSAGE);
+        }
     }
 
     private void runTask(Long taskId, ExportTaskDTO dto) {
@@ -117,18 +126,15 @@ public class ExportTaskExecutor {
             update.setFileUrl(storageResult.getUrl());
             update.setMessage("导出完成");
             update.setEndTime(new Date());
-            taskMapper.updateById(update);
+            LambdaUpdateWrapper<ExportTaskProcess> wrapper = new LambdaUpdateWrapper<ExportTaskProcess>()
+                    .eq(ExportTaskProcess::getId, taskId)
+                    .eq(ExportTaskProcess::getStatus, ExportTaskStatusEnum.PROCESSING.getCode());
+            taskMapper.update(update, wrapper);
             ExportTaskProcess latest = taskMapper.selectById(taskId);
             notifier.notify(latest);
         } catch (Exception e) {
             log.error("导出任务执行失败，taskId={}", taskId, e);
-            ExportTaskProcess update = new ExportTaskProcess();
-            update.setId(taskId);
-            update.setStatus(ExportTaskStatusEnum.FAIL.getCode());
-            update.setMessage(limitMessage(e.getMessage()));
-            update.setEndTime(new Date());
-            taskMapper.updateById(update);
-            notifier.notify(taskMapper.selectById(taskId));
+            markFailure(taskId, limitMessage(e.getMessage()));
         } finally {
             if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
                 log.warn("删除导出临时文件失败：{}", tempFile.getAbsolutePath());
@@ -145,6 +151,21 @@ public class ExportTaskExecutor {
         wrapper.eq(ExportTaskProcess::getId, taskId)
                 .eq(ExportTaskProcess::getStatus, ExportTaskStatusEnum.INIT.getCode());
         return taskMapper.update(update, wrapper) > 0;
+    }
+
+    private void markFailure(Long taskId, String message) {
+        ExportTaskProcess update = new ExportTaskProcess();
+        update.setId(taskId);
+        update.setStatus(ExportTaskStatusEnum.FAIL.getCode());
+        update.setMessage(limitMessage(message));
+        update.setEndTime(new Date());
+        LambdaUpdateWrapper<ExportTaskProcess> wrapper = new LambdaUpdateWrapper<ExportTaskProcess>()
+                .eq(ExportTaskProcess::getId, taskId)
+                .in(ExportTaskProcess::getStatus,
+                        ExportTaskStatusEnum.INIT.getCode(),
+                        ExportTaskStatusEnum.PROCESSING.getCode());
+        taskMapper.update(update, wrapper);
+        notifier.notify(taskMapper.selectById(taskId));
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -196,6 +217,81 @@ public class ExportTaskExecutor {
             return "导出失败";
         }
         return message.length() > 250 ? message.substring(0, 250) : message;
+    }
+
+    private ExportTaskDTO snapshotDto(ExportTaskDTO dto) {
+        if (dto == null) {
+            return new ExportTaskDTO();
+        }
+        ExportTaskDTO snapshot = new ExportTaskDTO();
+        snapshot.setTaskName(dto.getTaskName());
+        snapshot.setBusinessType(dto.getBusinessType());
+        snapshot.setBusinessSystem(dto.getBusinessSystem());
+        snapshot.setFileName(dto.getFileName());
+        snapshot.setSheetName(dto.getSheetName());
+        snapshot.setCreator(dto.getCreator());
+        if (dto.getExtMap() != null) {
+            snapshot.setExtMap(copyMap(dto.getExtMap()));
+        }
+        return snapshot;
+    }
+
+    private LinkedHashMap<String, Object> copyMap(Map<String, Object> source) {
+        LinkedHashMap<String, Object> target = new LinkedHashMap<>(source.size());
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            target.put(entry.getKey(), deepCopyValue(entry.getValue()));
+        }
+        return target;
+    }
+
+    private Object deepCopyValue(Object value) {
+        if (value == null) return null;
+        if (value instanceof String || value instanceof Number || value instanceof Boolean || value instanceof Character || value instanceof Enum) {
+            return value;
+        }
+        if (value instanceof Date) {
+            return new Date(((Date) value).getTime());
+        }
+        if (value instanceof Map) {
+            LinkedHashMap<String, Object> copy = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                copy.put(String.valueOf(entry.getKey()), deepCopyValue(entry.getValue()));
+            }
+            return copy;
+        }
+        if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            List<Object> copy = new ArrayList<>(list.size());
+            for (Object item : list) {
+                copy.add(deepCopyValue(item));
+            }
+            return copy;
+        }
+        if (value instanceof Set) {
+            Set<?> set = (Set<?>) value;
+            Set<Object> copy = new LinkedHashSet<>(set.size());
+            for (Object item : set) {
+                copy.add(deepCopyValue(item));
+            }
+            return copy;
+        }
+        if (value instanceof Collection) {
+            Collection<?> collection = (Collection<?>) value;
+            List<Object> copy = new ArrayList<>(collection.size());
+            for (Object item : collection) {
+                copy.add(deepCopyValue(item));
+            }
+            return copy;
+        }
+        if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            Object copy = Array.newInstance(value.getClass().getComponentType(), length);
+            for (int i = 0; i < length; i++) {
+                Array.set(copy, i, deepCopyValue(Array.get(value, i)));
+            }
+            return copy;
+        }
+        return value;
     }
 
     private Map<String, ExportTaskHandler<?>> buildHandlerMap(List<ExportTaskHandler<?>> handlers) {
