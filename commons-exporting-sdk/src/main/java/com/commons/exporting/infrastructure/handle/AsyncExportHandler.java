@@ -1,20 +1,19 @@
 package com.commons.exporting.infrastructure.handle;
 
-import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.commons.exporting.domain.model.ExportTaskCreateRequest;
-
-import java.util.List;
+import com.eximport.export.shared.excel.ExcelPageExportHandler;
+import com.eximport.export.shared.support.ExportHandlerDescriptor;
 
 /**
  * 业务系统实现的异步导出处理器。
  * <p>
  * starter 会根据 {@link #businessSystem()} 与 {@link #businessType()} 的组合唯一匹配处理器，
- * 再通过 {@link #queryPage(ExportTaskCreateRequest, long, int)} 分页拉取业务数据并生成 Excel。
+ * 再通过继承的分页查询能力拉取业务数据并生成 Excel。
  * 业务系统只需要实现该接口，不需要直接依赖或调用 core 模块接口。
  *
  * @param <T> Excel 行模型
  */
-public interface AsyncExportHandler<T> {
+public interface AsyncExportHandler<T> extends ExcelPageExportHandler<ExportTaskCreateRequest, T>, ExportHandlerDescriptor {
 
     /**
      * 返回当前处理器所属的业务系统标识。
@@ -31,23 +30,6 @@ public interface AsyncExportHandler<T> {
     String businessType();
 
     /**
-     * 返回 EasyExcel 表头模型类型。
-     *
-     * @return Excel 行对象对应的表头类
-     */
-    Class<T> headClass();
-
-    /**
-     * 生成 sheet 名称。
-     *
-     * @param request 导出请求
-     * @return 当前任务对应的 sheet 名称
-     */
-    default String sheetName(ExportTaskCreateRequest request) {
-        return "数据";
-    }
-
-    /**
      * 生成默认文件名，不含路径。
      * <p>
      * 当调用方未显式传入文件名时会回退到该默认值。
@@ -58,29 +40,5 @@ public interface AsyncExportHandler<T> {
     default String fileName(ExportTaskCreateRequest request) {
         return request.getBusinessType() + ".xlsx";
     }
-
-    /**
-     * 自定义 EasyExcel 写入构建器。
-     *
-     * @param request 导出请求
-     * @param writerBuilder 当前任务对应的 EasyExcel 写入构建器
-     */
-    default void customizeWriter(ExportTaskCreateRequest request, ExcelWriterBuilder writerBuilder) {
-        // 默认无扩展
-    }
-
-    /**
-     * 分页查询业务数据。
-     * <p>
-     * {@code pageNo} 从 1 开始，必须真正参与业务分页查询；
-     * 当返回空集合或返回条数小于 {@code pageSize} 时，starter 认为当前分页已无更多数据并结束导出。
-     * 若忽略 {@code pageNo} 持续返回满页数据，导出线程会触发最大分页次数保护并失败。
-     *
-     * @param request 导出请求
-     * @param pageNo 当前页码，从 1 开始
-     * @param pageSize 分页大小，由 starter 配置决定
-     * @return 当前页导出数据，不能为空
-     */
-    List<T> queryPage(ExportTaskCreateRequest request, long pageNo, int pageSize);
 }
 

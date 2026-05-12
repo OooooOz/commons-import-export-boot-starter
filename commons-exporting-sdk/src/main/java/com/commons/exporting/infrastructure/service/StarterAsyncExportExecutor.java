@@ -1,15 +1,17 @@
 package com.commons.exporting.infrastructure.service;
 
-import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.commons.exporting.configure.ExportAsyncProperties;
 import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
 import com.commons.exporting.infrastructure.context.AsyncExportContextPropagator;
 import com.commons.exporting.infrastructure.context.AsyncExportContextSnapshot;
-import com.commons.exporting.infrastructure.excel.LargeExcelWriter;
 import com.commons.exporting.infrastructure.file.CoreExportGeneratedFileUploader;
 import com.commons.exporting.infrastructure.file.ExportGeneratedFileUploader;
 import com.commons.exporting.infrastructure.handle.AsyncExportHandler;
+import com.eximport.export.shared.excel.PagedExcelWriteSupport;
+import com.eximport.export.shared.support.ExportExecutionSupport;
+import com.eximport.export.shared.support.ExportHandlerRegistrySupport;
+import com.eximport.export.shared.support.ExportPayloadCopySupport;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
@@ -17,11 +19,10 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.RejectedExecutionHandler;
 
 /**
  * 业务系统本地异步导出执行器。
@@ -37,7 +38,7 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
     private final ExportAsyncProperties asyncProperties;
     private final AsyncExportContextPropagator asyncExportContextPropagator;
     private final ExportGeneratedFileUploader exportGeneratedFileUploader;
-    private final LargeExcelWriter excelWriter = new LargeExcelWriter();
+    private final PagedExcelWriteSupport excelWriteSupport = new PagedExcelWriteSupport();
     private final Map<String, AsyncExportHandler<?>> handlerMap;
     private ThreadPoolTaskExecutor executor;
 
@@ -57,7 +58,7 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         this.asyncProperties = asyncProperties;
         this.asyncExportContextPropagator = asyncExportContextPropagator;
         this.exportGeneratedFileUploader = exportGeneratedFileUploader;
-        this.handlerMap = buildHandlerMap(handlers);
+        this.handlerMap = ExportHandlerRegistrySupport.buildHandlerMap(handlers);
     }
 
     @Override
@@ -67,10 +68,13 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         taskExecutor.setCorePoolSize(asyncProperties.getCorePoolSize());
         taskExecutor.setMaxPoolSize(asyncProperties.getMaxPoolSize());
         taskExecutor.setQueueCapacity(asyncProperties.getQueueCapacity());
-        taskExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        RejectedExecutionHandler rejectedExecutionHandler = ExportExecutionSupport.resolveRejectedExecutionHandler(asyncProperties.getRejectionPolicy());
+        taskExecutor.setRejectedExecutionHandler(rejectedExecutionHandler);
         taskExecutor.initialize();
         executor = taskExecutor;
-        log.info("starter导出任务线程池初始化完成，handlers={}", handlerMap.keySet());
+        log.info("starter导出任务线程池初始化完成，handlers={}, corePoolSize={}, maxPoolSize={}, queueCapacity={}, rejectionPolicy={}",
+                handlerMap.keySet(), asyncProperties.getCorePoolSize(), asyncProperties.getMaxPoolSize(),
+                asyncProperties.getQueueCapacity(), ExportExecutionSupport.normalizeRejectionPolicy(asyncProperties.getRejectionPolicy()));
     }
 
     @Override
@@ -120,18 +124,24 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         File tempFile = null;
         try {
             remoteExportTaskClient.markProcessing(taskId);
-            AsyncExportHandler<?> handler = handlerMap.get(buildHandlerKey(request.getBusinessSystem(), request.getBusinessType()));
+            AsyncExportHandler<?> handler = handlerMap.get(ExportHandlerRegistrySupport.buildHandlerKey(request.getBusinessSystem(), request.getBusinessType()));
             if (handler == null)
                 throw new IllegalArgumentException("未找到导出处理器，businessSystem=" + request.getBusinessSystem() + ", businessType=" + request.getBusinessType());
 
-            String fileName = normalizeFileName(StringUtils.hasText(request.getFileName()) ? request.getFileName() : handler.fileName(request));
+            String fileName = ExportExecutionSupport.normalizeFileName(StringUtils.hasText(request.getFileName()) ? request.getFileName() : handler.fileName(request));
             tempFile = File.createTempFile("starter-export-" + safeTaskId(taskId) + "-", ".xlsx");
-            writeExcel(tempFile, request, handler);
+            excelWriteSupport.writeExcel(
+                    tempFile,
+                    request,
+                    handler,
+                    asyncProperties.getPageSize(),
+                    asyncProperties.getMaxRowsPerSheet(),
+                    asyncProperties.getMaxQueryPages());
             exportGeneratedFileUploader.upload(taskId, request, tempFile, fileName);
         } catch (Exception e) {
             log.error("starter导出任务执行失败，taskId={}", taskId, e);
             try {
-                remoteExportTaskClient.markFailure(taskId, limitMessage(e.getMessage()));
+                remoteExportTaskClient.markFailure(taskId, ExportExecutionSupport.limitMessage(e.getMessage()));
             } catch (Exception remoteException) {
                 log.error("回写导出任务失败状态到core失败，taskId={}", taskId, remoteException);
             }
@@ -140,54 +150,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         }
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private void writeExcel(File tempFile, ExportTaskCreateRequest request, AsyncExportHandler handler) {
-        excelWriter.write(
-                tempFile,
-                handler.sheetName(request),
-                handler.headClass(),
-                (ExcelWriterBuilder writerBuilder) -> handler.customizeWriter(request, writerBuilder),
-                (pageNo, pageSize) -> handler.queryPage(request, pageNo, pageSize),
-                asyncProperties.getPageSize(),
-                asyncProperties.getMaxRowsPerSheet());
-    }
-
-    private Map<String, AsyncExportHandler<?>> buildHandlerMap(List<AsyncExportHandler<?>> handlers) {
-        if (handlers == null || handlers.isEmpty()) return Collections.emptyMap();
-        Map<String, AsyncExportHandler<?>> mappings = new LinkedHashMap<>();
-        for (AsyncExportHandler<?> handler : handlers) {
-            String key = buildHandlerKey(handler.businessSystem(), handler.businessType());
-            AsyncExportHandler<?> existing = mappings.putIfAbsent(key, handler);
-            if (existing != null) throw new IllegalStateException("导出处理器重复注册，key=" + key
-                    + ", existing=" + existing.getClass().getName()
-                    + ", current=" + handler.getClass().getName());
-        }
-        return Collections.unmodifiableMap(mappings);
-    }
-
-    private String buildHandlerKey(String businessSystem, String businessType) {
-        return normalizeKeyPart(businessSystem, "businessSystem") + "_" + normalizeKeyPart(businessType, "businessType");
-    }
-
-    private String normalizeKeyPart(String value, String fieldName) {
-        if (!StringUtils.hasText(value)) throw new IllegalArgumentException(fieldName + "不能为空");
-        return value.trim();
-    }
-
-    private String normalizeFileName(String fileName) {
-        if (!StringUtils.hasText(fileName)) fileName = UUID.randomUUID().toString().replace("-", "") + ".xlsx";
-        fileName = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
-        if (!fileName.toLowerCase().endsWith(".xlsx")) fileName = fileName + ".xlsx";
-        return fileName;
-    }
 
     private String safeTaskId(Long taskId) {
         return taskId == null ? "unknown" : String.valueOf(taskId);
-    }
-
-    private String limitMessage(String message) {
-        if (!StringUtils.hasText(message)) return "导出失败";
-        return message.length() > 250 ? message.substring(0, 250) : message;
     }
 
     private ExportTaskCreateRequest snapshotRequest(ExportTaskCreateRequest request) {
@@ -200,68 +165,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         snapshot.setSheetName(request.getSheetName());
         snapshot.setCreator(request.getCreator());
         if (request.getExtMap() != null) {
-            snapshot.setExtMap(copyMap(request.getExtMap()));
+            snapshot.setExtMap(ExportPayloadCopySupport.copyMap(request.getExtMap()));
         }
         return snapshot;
-    }
-
-    private LinkedHashMap<String, Object> copyMap(Map<String, Object> source) {
-        LinkedHashMap<String, Object> target = new LinkedHashMap<String, Object>(source.size());
-        for (Map.Entry<String, Object> entry : source.entrySet()) {
-            target.put(entry.getKey(), deepCopyValue(entry.getValue()));
-        }
-        return target;
-    }
-
-    @SuppressWarnings("unchecked")
-    private Object deepCopyValue(Object value) {
-        if (value == null) return null;
-        if (value instanceof String || value instanceof Number || value instanceof Boolean || value instanceof Character || value instanceof Enum) {
-            return value;
-        }
-        if (value instanceof Date) {
-            return new Date(((Date) value).getTime());
-        }
-        if (value instanceof Map) {
-            LinkedHashMap<String, Object> copy = new LinkedHashMap<>();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-                copy.put(String.valueOf(entry.getKey()), deepCopyValue(entry.getValue()));
-            }
-            return copy;
-        }
-        if (value instanceof List) {
-            List<?> list = (List<?>) value;
-            List<Object> copy = new ArrayList<>(list.size());
-            for (Object item : list) {
-                copy.add(deepCopyValue(item));
-            }
-            return copy;
-        }
-        if (value instanceof Set) {
-            Set<?> set = (Set<?>) value;
-            Set<Object> copy = new LinkedHashSet<>(set.size());
-            for (Object item : set) {
-                copy.add(deepCopyValue(item));
-            }
-            return copy;
-        }
-        if (value instanceof Collection) {
-            Collection<?> collection = (Collection<?>) value;
-            List<Object> copy = new ArrayList<>(collection.size());
-            for (Object item : collection) {
-                copy.add(deepCopyValue(item));
-            }
-            return copy;
-        }
-        if (value.getClass().isArray()) {
-            int length = Array.getLength(value);
-            Object copy = Array.newInstance(value.getClass().getComponentType(), length);
-            for (int i = 0; i < length; i++) {
-                Array.set(copy, i, deepCopyValue(Array.get(value, i)));
-            }
-            return copy;
-        }
-        return value;
     }
 }
 

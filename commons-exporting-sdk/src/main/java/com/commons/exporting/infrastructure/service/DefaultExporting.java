@@ -1,14 +1,13 @@
 package com.commons.exporting.infrastructure.service;
 
 
+import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.export.shared.support.ExportPayloadCopySupport;
 import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.domain.model.ExportTaskInfo;
 import com.commons.exporting.domain.service.Exporting;
 import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
-import com.commons.exporting.infrastructure.client.model.ExportTaskVO;
-
-import java.util.LinkedHashMap;
 
 /**
  * {@link Exporting} 的默认实现。
@@ -92,7 +91,7 @@ public class DefaultExporting implements Exporting {
         snapshot.setSheetName(request.getSheetName());
         snapshot.setCreator(request.getCreator());
         if (request.getExtMap() != null) {
-            snapshot.setExtMap(new LinkedHashMap<>(request.getExtMap()));
+            snapshot.setExtMap(ExportPayloadCopySupport.copyMap(request.getExtMap()));
         }
         return snapshot;
     }

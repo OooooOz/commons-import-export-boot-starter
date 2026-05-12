@@ -1,10 +1,8 @@
 package org.commons.infrastructure.util;
 
+import com.eximport.export.shared.support.KeyedLockSupport;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 
 /**
@@ -14,23 +12,10 @@ import java.util.function.Supplier;
  */
 @Component
 public class ExportTaskRequestDedupLockManager {
-    private final ConcurrentMap<String, ReentrantLock> lockMap = new ConcurrentHashMap<String, ReentrantLock>();
+    private final KeyedLockSupport keyedLockSupport = new KeyedLockSupport();
 
     public <T> T execute(String fingerprint, Supplier<T> supplier) {
-        String key = fingerprint == null ? "" : fingerprint;
-        ReentrantLock lock = lockMap.computeIfAbsent(key, value -> new ReentrantLock());
-        lock.lock();
-        try {
-            return supplier.get();
-        } finally {
-            try {
-                lock.unlock();
-            } finally {
-                if (!lock.isLocked() && !lock.hasQueuedThreads()) {
-                    lockMap.remove(key, lock);
-                }
-            }
-        }
+        return keyedLockSupport.execute(fingerprint, supplier);
     }
 }
 

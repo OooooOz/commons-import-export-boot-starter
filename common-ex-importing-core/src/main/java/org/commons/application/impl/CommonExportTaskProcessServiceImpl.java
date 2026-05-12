@@ -4,13 +4,15 @@ import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.export.shared.support.ExportExecutionSupport;
+import com.eximport.export.shared.support.ExportStorageSupport;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
 import org.commons.application.CommonExportTaskProcessService;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.enums.ExportTaskStatusEnum;
-import org.commons.domain.model.vo.ExportTaskVO;
 import org.commons.domain.model.vo.LocalExportFileDownload;
 import org.commons.domain.service.ExportTaskProcessService;
 import org.commons.export.config.ExportStorageProperties;
@@ -28,7 +30,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -40,7 +41,6 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     private static final String ASC = "asc";
     private static final String DESC = "desc";
     private static final String DEFAULT_ORDER_BY = "id DESC";
-    private static final String XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final Map<String, String> SORT_FIELD_MAPPING = buildSortFieldMapping();
 
     private final ExportTaskProcessService exportTaskProcessService;
@@ -106,9 +106,9 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     public ExportTaskVO uploadSuccess(Long id, File file, String fileName, String message) {
         ExportTaskProcess task = exportTaskProcessService.getById(id);
         if (task == null) throw new IllegalArgumentException("导出任务不存在，id=" + id);
-        String normalizedFileName = normalizeFileName(fileName);
-        String objectName = buildObjectName(task.getTaskNo(), normalizedFileName);
-        StorageResult storageResult = exportFileStorage.upload(file, objectName, XLSX_CONTENT_TYPE);
+        String normalizedFileName = ExportExecutionSupport.normalizeFileName(fileName);
+        String objectName = ExportStorageSupport.buildObjectName(exportStorageProperties.getObjectPrefix(), task.getTaskNo(), normalizedFileName);
+        StorageResult storageResult = exportFileStorage.upload(file, objectName, ExportStorageSupport.XLSX_CONTENT_TYPE);
 
         return finishSuccess(task, normalizedFileName, storageResult.getUrl(), message);
     }
@@ -118,7 +118,7 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         ExportTaskProcess task = exportTaskProcessService.getById(id);
         if (task == null) throw new IllegalArgumentException("导出任务不存在，id=" + id);
         if (!StringUtils.hasText(fileUrl)) throw new IllegalArgumentException("fileUrl不能为空");
-        String normalizedFileName = normalizeFileName(fileName);
+        String normalizedFileName = ExportExecutionSupport.normalizeFileName(fileName);
         return finishSuccess(task, normalizedFileName, fileUrl.trim(), message);
     }
 
@@ -146,7 +146,7 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         ExportTaskProcess update = new ExportTaskProcess();
         update.setId(id);
         update.setStatus(ExportTaskStatusEnum.FAIL.getCode());
-        update.setMessage(limitMessage(message));
+        update.setMessage(ExportExecutionSupport.limitMessage(message));
         update.setEndTime(new Date());
         LambdaUpdateWrapper<ExportTaskProcess> wrapper = new LambdaUpdateWrapper<ExportTaskProcess>()
                 .eq(ExportTaskProcess::getId, id)
@@ -258,31 +258,6 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         throw new IllegalStateException("生成唯一导出任务号失败，请稍后重试", lastException);
     }
 
-    private String buildObjectName(String taskNo, String fileName) {
-        String date = new SimpleDateFormat("yyyyMMdd").format(new Date());
-        String prefix = exportStorageProperties.getObjectPrefix();
-        if (!StringUtils.hasText(prefix)) prefix = "exports";
-        prefix = trimSlash(prefix);
-        return prefix + "/" + date + "/" + taskNo + "-" + fileName;
-    }
-
-    private String normalizeFileName(String fileName) {
-        if (!StringUtils.hasText(fileName)) fileName = UUID.randomUUID().toString().replace("-", "") + ".xlsx";
-        fileName = fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
-        if (!fileName.toLowerCase().endsWith(".xlsx")) fileName = fileName + ".xlsx";
-        return fileName;
-    }
-
-    private String trimSlash(String value) {
-        while (value.startsWith("/")) value = value.substring(1);
-        while (value.endsWith("/")) value = value.substring(0, value.length() - 1);
-        return value;
-    }
-
-    private String limitMessage(String message) {
-        if (!StringUtils.hasText(message)) return "导出失败";
-        return message.length() > 250 ? message.substring(0, 250) : message;
-    }
 
     private static Map<String, String> buildSortFieldMapping() {
         Map<String, String> mapping = new LinkedHashMap<>();

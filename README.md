@@ -63,9 +63,19 @@ common:
       core-pool-size: 4
       max-pool-size: 8
       queue-capacity: 200
+      rejection-policy: abort
       page-size: 5000
       max-rows-per-sheet: 1000000
+      max-query-pages: 10000
 ```
+
+并发调优说明：
+
+- `rejection-policy=abort`：默认推荐值。线程池和队列满时直接拒绝任务，并快速回写失败状态，避免拖垮业务请求线程。
+- `rejection-policy=caller-runs`：回退到调用线程执行，不建议高并发在线接口使用，仅适合低并发或离线触发场景。
+- `queue-capacity` 过大虽然能减少拒绝，但也会放大任务堆积和执行延迟。
+- `max-pool-size` 建议结合数据库、文件存储、下游接口承载能力调整，而不是盲目增大。
+- `max-query-pages` 用于防止业务分页实现异常时无限循环查询。
 
 ### 3. 数据存储边界
 

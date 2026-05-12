@@ -4,10 +4,10 @@ package org.commons.domain.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.eximport.export.shared.model.ExportTaskVO;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
-import org.commons.domain.model.vo.ExportTaskVO;
 
 /**
  * @author

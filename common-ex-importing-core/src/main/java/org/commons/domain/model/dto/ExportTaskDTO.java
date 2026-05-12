@@ -1,48 +1,25 @@
 package org.commons.domain.model.dto;
 
-import lombok.Data;
+import com.eximport.export.shared.model.ExportTaskFields;
 
 import javax.validation.constraints.NotBlank;
-import java.util.Map;
 
-@Data
-public class ExportTaskDTO {
-
-    /**
-     * 任务名称
-     */
-    private String taskName;
-
+public class ExportTaskDTO extends ExportTaskFields {
     /**
      * 业务类型
      */
+    @Override
     @NotBlank(message = "业务类型不能为空")
-    private String businessType;
+    public String getBusinessType() {
+        return super.getBusinessType();
+    }
 
     /**
      * 业务系统
      */
+    @Override
     @NotBlank(message = "业务系统不能为空")
-    private String businessSystem;
-
-    /**
-     * 文件名
-     */
-    private String fileName;
-
-    /**
-     * sheet名称
-     */
-    private String sheetName;
-
-    /**
-     * 操作人
-     */
-    private String creator;
-
-    /**
-     * 额外业务参数
-     */
-    private Map<String, Object> extMap;
-
+    public String getBusinessSystem() {
+        return super.getBusinessSystem();
+    }
 }

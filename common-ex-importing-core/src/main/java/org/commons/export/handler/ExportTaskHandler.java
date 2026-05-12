@@ -1,9 +1,8 @@
 package org.commons.export.handler;
 
-import com.alibaba.excel.write.builder.ExcelWriterBuilder;
+import com.eximport.export.shared.excel.ExcelPageExportHandler;
+import com.eximport.export.shared.support.ExportHandlerDescriptor;
 import org.commons.domain.model.dto.ExportTaskDTO;
-
-import java.util.List;
 
 /**
  * 业务导出处理器。每一种 businessSystem + businessType 组合实现一个 Handler，
@@ -11,7 +10,7 @@ import java.util.List;
  *
  * @param <T> EasyExcel 表头/数据行类型
  */
-public interface ExportTaskHandler<T> {
+public interface ExportTaskHandler<T> extends ExcelPageExportHandler<ExportTaskDTO, T>, ExportHandlerDescriptor {
     /**
      * 业务系统，需与 ExportTaskDTO.businessSystem 一致。
      */
@@ -23,38 +22,10 @@ public interface ExportTaskHandler<T> {
     String businessType();
 
     /**
-     * EasyExcel 表头类。
-     */
-    Class<T> headClass();
-
-    /**
-     * sheet 名称。
-     */
-    default String sheetName(ExportTaskDTO dto) {
-        return "数据";
-    }
-
-    /**
      * 默认文件名，不含路径，建议返回 .xlsx 后缀。
      */
     default String fileName(ExportTaskDTO dto) {
         return dto.getBusinessType() + ".xlsx";
     }
-
-    /**
-     * 自定义 EasyExcel 写入构建器，业务可通过回调注册样式、写处理器等。
-     */
-    default void customizeWriter(ExportTaskDTO dto, ExcelWriterBuilder writerBuilder) {
-        // 默认无扩展
-    }
-
-    /**
-     * 分页查询业务数据。
-     * <p>
-     * {@code pageNo} 从 1 开始，必须真正参与业务分页查询；
-     * 返回空集合，或返回条数小于 {@code pageSize} 时表示结束。
-     * 若忽略 {@code pageNo} 持续返回满页数据，导出线程会触发最大分页次数保护并失败。
-     */
-    List<T> queryPage(ExportTaskDTO dto, long pageNo, int pageSize);
 }
 

@@ -1,24 +1,19 @@
 package com.commons.exporting.infrastructure.client.model;
 
+import com.eximport.export.shared.model.ExportTaskFields;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.Date;
-import java.util.Map;
 
 /**
  * SDK 发送给 core 服务的导出任务创建请求。
  */
 @Data
-public class ExportTaskDTO {
-    private String taskName;
-    private String businessType;
-    private String businessSystem;
-    private String fileName;
-    private String sheetName;
+@EqualsAndHashCode(callSuper = true)
+public class ExportTaskDTO extends ExportTaskFields {
     private String fileUrl;
     private Date startTime;
     private Date endTime;
-    private String creator;
-    private Map<String, Object> extMap;
 }
 

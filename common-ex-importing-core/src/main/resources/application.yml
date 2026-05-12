@@ -24,8 +24,10 @@ common:
       core-pool-size: 4
       max-pool-size: 8
       queue-capacity: 200
+      rejection-policy: abort
       page-size: 5000
       max-rows-per-sheet: 1000000
+      max-query-pages: 10000
     storage:
       # local：开发联调写本地；aliyun：上传阿里云 OSS
       type: local

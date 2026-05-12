@@ -10,6 +10,7 @@
     <name>commons-import-export-boot-starter</name>
     <modules>
         <module>commons-importing-starter</module>
+        <module>commons-exporting-shared</module>
         <module>common-ex-importing-core</module>
         <module>commons-exporting-sdk</module>
     </modules>
