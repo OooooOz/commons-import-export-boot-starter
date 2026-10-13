@@ -2,8 +2,7 @@
 
 `commons-import-export-boot-starter` 提供两类能力：
 
-- `commons-exmporting-sdk`：业务系统接入异步导出
-- `commons-importing-starter`：业务系统接入 Excel 导入
+- `commons-ex-importing-sdk`：业务系统接入异步导出与 Excel 导入
 - `common-ex-importing-core`：独立部署的导出任务 core 服务
 
 ## 模块说明
@@ -17,34 +16,27 @@
 - 导出文件上传与存储
 - 前端查询、订阅、下载等能力
 
-### `commons-exmporting-sdk`
+### `commons-ex-importing-sdk`
 
-业务系统异步导出 SDK，负责：
+业务系统导出/导入 SDK，负责：
 
 - 调用 core 创建导出任务
 - 在业务系统本地匹配 `AsyncExportHandler`
 - 分页查询业务数据并生成 Excel
 - 将处理状态和文件上传结果回写到 core
-
-### `commons-importing-starter`
-
-业务系统导入 starter，负责：
-
-- 构建导入器
-- 读取 Excel 文件
-- 委托监听器进行校验、落库、结果汇总
+- 构建导入器，读取 Excel 文件并委托监听器进行校验、落库、结果汇总
 
 ## 异步导出接入
 
 ### 1. 引入依赖
 
-> 当前导出 SDK 的实际发布坐标为 `commons-exmporting-sdk`。
+> 当前导出 SDK 的实际发布坐标为 `commons-ex-importing-sdk`。
 
 ```xml
 
 <dependency>
     <groupId>com.ex-import</groupId>
-    <artifactId>commons-exmporting-sdk</artifactId>
+  <artifactId>commons-ex-importing-sdk</artifactId>
     <version>1.1.0</version>
 </dependency>
 ```
@@ -54,6 +46,7 @@
 ```yaml
 common:
   export:
+    enabled: true # 导出能力总开关，仅使用导入能力时可设为 false
     core:
       core-url: http://localhost:8091
       connect-timeout-millis: 5000
@@ -81,7 +74,7 @@ common:
 
 - `common-ex-importing-core` 作为独立 core 服务部署，负责维护导出任务表、业务配置表以及导出文件存储。
 - 业务系统不需要创建 `common-ex-importing-core` 中的任何表。
-- `commons-exmporting-sdk` 不依赖 `common-ex-importing-core` 的 Java 类，业务系统与 core 之间仅通过 HTTP 接口交互。
+- `commons-ex-importing-sdk` 不依赖 `common-ex-importing-core` 的 Java 类，业务系统与 core 之间仅通过 HTTP 接口交互。
 - 业务系统 starter 只在本地异步执行业务数据查询和 Excel 生成，任务创建、状态回写、文件上传都通过 HTTP 写入 core 服务。
 
 ### 4. 实现 `AsyncExportHandler`
@@ -344,14 +337,16 @@ public class BusinessOssExportGeneratedFileUploader implements ExportGeneratedFi
 
 ## Excel 导入接入
 
+> 导入能力已合并至 `commons-ex-importing-sdk`（包名 `com.commons.importing`）。
+
 ### 1. 引入依赖
 
 ```xml
 
 <dependency>
     <groupId>com.ex-import</groupId>
-    <artifactId>commons-importing-starter</artifactId>
-    <version>1.0.0</version>
+  <artifactId>commons-ex-importing-sdk</artifactId>
+  <version>1.1.0</version>
 </dependency>
 ```
 

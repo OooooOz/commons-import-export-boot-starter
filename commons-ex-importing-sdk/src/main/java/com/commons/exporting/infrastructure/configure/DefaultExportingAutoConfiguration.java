@@ -1,0 +1,185 @@
+package com.commons.exporting.infrastructure.configure;
+
+
+import com.commons.exporting.configure.ExportAsyncProperties;
+import com.commons.exporting.configure.ExportCoreProperties;
+import com.commons.exporting.domain.service.Exporting;
+import com.commons.exporting.infrastructure.client.ExportTaskCoreFeignClient;
+import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
+import com.commons.exporting.infrastructure.context.AsyncExportContextContributor;
+import com.commons.exporting.infrastructure.context.AsyncExportContextPropagator;
+import com.commons.exporting.infrastructure.context.CompositeAsyncExportContextPropagator;
+import com.commons.exporting.infrastructure.context.RequestHeaderAsyncExportContextContributor;
+import com.commons.exporting.infrastructure.file.BusinessExportFileUploader;
+import com.commons.exporting.infrastructure.file.BusinessExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.CoreExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.ExportGeneratedFileUploader;
+import com.commons.exporting.infrastructure.file.GeneratedFileUploadMode;
+import com.commons.exporting.infrastructure.handle.AsyncExportHandler;
+import com.commons.exporting.infrastructure.service.DefaultExporting;
+import com.commons.exporting.infrastructure.service.StarterAsyncExportExecutor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import feign.Feign;
+import feign.Request;
+import feign.Util;
+import feign.codec.Decoder;
+import feign.codec.EncodeException;
+import feign.codec.Encoder;
+import feign.form.FormEncoder;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.util.StringUtils;
+
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+/**
+ * 导出 SDK 自动配置。
+ * <p>
+ * 负责注册访问 core 服务的轻量 HTTP 客户端、异步执行器以及业务系统可直接注入的
+ * {@link Exporting} 门面实现。
+ * <p>
+ * 默认开启；仅使用导入能力的服务可通过 {@code common.export.enabled=false} 整体关闭，
+ * 避免装配 Feign 客户端、异步执行器等导出侧 Bean。
+ */
+@AutoConfiguration
+@ConditionalOnProperty(prefix = "common.export", name = "enabled", havingValue = "true", matchIfMissing = true)
+@EnableConfigurationProperties({ExportAsyncProperties.class, ExportCoreProperties.class})
+public class DefaultExportingAutoConfiguration {
+    public DefaultExportingAutoConfiguration() {
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ExportTaskCoreFeignClient exportTaskCoreFeignClient(ExportCoreProperties exportCoreProperties,
+                                                               ObjectProvider<ObjectMapper> objectMapperProvider) {
+        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        return Feign.builder()
+                .encoder(new FormEncoder(jsonEncoder(objectMapper)))
+                .decoder(jsonDecoder(objectMapper))
+                .options(new Request.Options(
+                        exportCoreProperties.getConnectTimeoutMillis(), TimeUnit.MILLISECONDS,
+                        exportCoreProperties.getReadTimeoutMillis(), TimeUnit.MILLISECONDS,
+                        true))
+                .target(ExportTaskCoreFeignClient.class, trimTrailingSlash(exportCoreProperties.getCoreUrl()));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RemoteExportTaskClient remoteExportTaskClient(ExportTaskCoreFeignClient exportTaskCoreFeignClient) {
+        return new RemoteExportTaskClient(exportTaskCoreFeignClient);
+    }
+
+    /**
+     * 注册导出文件上传器。
+     * <p>
+     * 支持两种内置模式：
+     * <ul>
+     *     <li>{@link GeneratedFileUploadMode#CORE}：将生成后的 Excel 文件上传回 core，由 core 负责最终存储；</li>
+     *     <li>{@link GeneratedFileUploadMode#BUSINESS}：由业务系统先上传到自身 OSS / MinIO，再调用
+     *     {@link RemoteExportTaskClient#reportSuccess(Long, String, String)} 回写最终文件地址。</li>
+     * </ul>
+     * 业务系统若声明了自定义 {@link ExportGeneratedFileUploader} Bean，将优先覆盖内置模式。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public ExportGeneratedFileUploader exportGeneratedFileUploader(RemoteExportTaskClient remoteExportTaskClient,
+                                                                   ExportCoreProperties exportCoreProperties,
+                                                                   ObjectProvider<BusinessExportFileUploader> businessExportFileUploaderProvider) {
+        GeneratedFileUploadMode uploadMode = exportCoreProperties.getGeneratedFileUploadMode();
+        if (uploadMode == null || uploadMode == GeneratedFileUploadMode.CORE) {
+            return new CoreExportGeneratedFileUploader(remoteExportTaskClient);
+        }
+        BusinessExportFileUploader businessExportFileUploader = businessExportFileUploaderProvider.getIfAvailable();
+        if (businessExportFileUploader == null) {
+            throw new IllegalStateException("当前已配置 common.export.core.generated-file-upload-mode=BUSINESS，但未声明 BusinessExportFileUploader Bean");
+        }
+        return new BusinessExportGeneratedFileUploader(remoteExportTaskClient, businessExportFileUploader);
+    }
+
+    /**
+     * 注册异步导出上下文透传器。
+     * <p>
+     * 业务系统可声明一个或多个 {@link AsyncExportContextContributor} Bean，用于捕获并恢复租户、用户、
+     * 数据权限等 ThreadLocal 上下文。未声明时默认使用空实现。
+     */
+    @Bean
+    @ConditionalOnClass(name = {
+            "org.springframework.web.context.request.RequestContextHolder",
+            "org.springframework.web.context.request.ServletRequestAttributes",
+            "javax.servlet.http.HttpServletRequest"
+    })
+    public AsyncExportContextContributor requestHeaderAsyncExportContextContributor() {
+        return new RequestHeaderAsyncExportContextContributor();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public AsyncExportContextPropagator asyncExportContextPropagator(ObjectProvider<AsyncExportContextContributor> contributorsProvider) {
+        return new CompositeAsyncExportContextPropagator(contributorsProvider.orderedStream().collect(Collectors.toList()));
+    }
+
+    /**
+     * 注册本地异步导出执行器，并收集业务系统实现的全部导出处理器。
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public StarterAsyncExportExecutor starterAsyncExportExecutor(RemoteExportTaskClient remoteExportTaskClient,
+                                                                 ExportAsyncProperties exportAsyncProperties,
+                                                                 AsyncExportContextPropagator asyncExportContextPropagator,
+                                                                 ExportGeneratedFileUploader exportGeneratedFileUploader,
+                                                                 ObjectProvider<AsyncExportHandler<?>> handlersProvider) {
+        List<AsyncExportHandler<?>> handlers = handlersProvider.orderedStream().collect(Collectors.toList());
+        return new StarterAsyncExportExecutor(remoteExportTaskClient, exportAsyncProperties,
+                asyncExportContextPropagator, exportGeneratedFileUploader, handlers);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public Exporting exporting(RemoteExportTaskClient remoteExportTaskClient,
+                               StarterAsyncExportExecutor starterAsyncExportExecutor) {
+        return new DefaultExporting(remoteExportTaskClient, starterAsyncExportExecutor);
+    }
+
+    private String trimTrailingSlash(String value) {
+        if (!StringUtils.hasText(value)) return "http://10.39.11.156:8091";
+        String result = value.trim();
+        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
+        return result;
+    }
+
+    private Encoder jsonEncoder(ObjectMapper objectMapper) {
+        return (object, bodyType, requestTemplate) -> {
+            if (object == null) return;
+            try {
+                requestTemplate.body(objectMapper.writeValueAsBytes(object), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new EncodeException("JSON请求体序列化失败", e);
+            }
+        };
+    }
+
+    private Decoder jsonDecoder(ObjectMapper objectMapper) {
+        return (response, type) -> {
+            if (response.body() == null) return Util.emptyValueOf(type);
+            return readResponseBody(objectMapper, response.body().asInputStream(), type);
+        };
+    }
+
+    private Object readResponseBody(ObjectMapper objectMapper, java.io.InputStream inputStream, Type type) throws IOException {
+        try {
+            return objectMapper.readValue(inputStream, objectMapper.getTypeFactory().constructType(type));
+        } finally {
+            inputStream.close();
+        }
+    }
+}

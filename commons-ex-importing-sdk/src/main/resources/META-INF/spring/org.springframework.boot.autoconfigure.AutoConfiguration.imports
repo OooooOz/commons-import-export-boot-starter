@@ -1,0 +1,3 @@
+com.commons.exporting.infrastructure.configure.DefaultExportingAutoConfiguration
+com.commons.importing.configure.DefaultImportingAutoConfiguration
+
