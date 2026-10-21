@@ -6,46 +6,34 @@ import com.commons.importing.Importer;
 import com.commons.importing.ImporterFactory;
 import com.commons.importing.ImporterFactoryBuilder;
 import com.commons.importing.Importing;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.util.Assert;
 
-/**
- * {@link Importing} 的默认实现。
- * <p>
- * 负责为不同实体类型缓存导入器工厂，并按需创建导入器实例。
- */
-public class DefaultImporting implements Importing {
+public class DefaultImporting implements Importing, ApplicationContextAware {
 
-    private final ConcurrentHashMap<Class<?>, ImporterFactory<?>> importerFactories = new ConcurrentHashMap<>();
+    private ApplicationContext applicationContext;
 
-    /**
-     * 创建默认的导入器工厂构建器。
-     */
+    private final ConcurrentHashMap<Class<?>, ImporterFactory<?>> importerFactories = new ConcurrentHashMap();
+
     public <T> ImporterFactoryBuilder<T> getImporterFactoryBuilder() {
-        return new DefaultImporterFactoryBuilder<>();
+        return new DefaultImporterFactoryBuilder(this);
     }
 
-    /**
-     * 获取指定实体类型的导入器。
-     */
     public <T> Importer<T> getImporter(Class<T> entityClass) {
         Assert.notNull(entityClass, "entity class is null");
-        ImporterFactory<T> importerFactory = getOrCreateImporterFactory(entityClass);
+        ImporterFactory<T> importerFactory = (ImporterFactory)this.importerFactories.get(entityClass);
+        if (importerFactory == null) {
+            ImporterFactoryBuilder<T> builder = getImporterFactoryBuilder();
+            importerFactory = builder.entityClass(entityClass).build();
+            this.importerFactories.put(entityClass, importerFactory);
+        }
         return importerFactory.createImporter();
     }
 
-    private <T> ImporterFactory<T> getOrCreateImporterFactory(Class<T> entityClass) {
-        ImporterFactory<?> importerFactory = importerFactories.computeIfAbsent(entityClass,
-                key -> createImporterFactory(entityClass));
-        return castImporterFactory(importerFactory);
-    }
-
-    private <T> ImporterFactory<T> createImporterFactory(Class<T> entityClass) {
-        ImporterFactoryBuilder<T> builder = new DefaultImporterFactoryBuilder<>();
-        return builder.entityClass(entityClass).build();
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> ImporterFactory<T> castImporterFactory(ImporterFactory<?> importerFactory) {
-        return (ImporterFactory<T>) importerFactory;
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 }

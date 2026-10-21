@@ -40,8 +40,11 @@ public final class ExcelSelectedResolveUtil {
                     excelSelectedResolve.setSource(source);
                     excelSelectedResolve.setFirstRow(selected.firstRow());
                     excelSelectedResolve.setLastRow(selected.lastRow());
-                    if (property != null && property.index() >= 0) selectedMap.put(property.index(), excelSelectedResolve);
-                    else selectedMap.put(i, excelSelectedResolve);
+                    if (property != null && property.index() >= 0) {
+                        selectedMap.put(property.index(), excelSelectedResolve);
+                    } else {
+                        selectedMap.put(i, excelSelectedResolve);
+                    }
                 }
             }
         }

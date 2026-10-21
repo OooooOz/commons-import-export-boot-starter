@@ -4,14 +4,14 @@ import com.alibaba.excel.write.handler.SheetWriteHandler;
 import com.alibaba.excel.write.metadata.holder.WriteSheetHolder;
 import com.alibaba.excel.write.metadata.holder.WriteWorkbookHolder;
 import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import lombok.Data;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.util.CellRangeAddressList;
 import org.apache.poi.xssf.usermodel.XSSFDataValidation;
 
 import java.util.Map;
 
-@Slf4j
+@Data
 @AllArgsConstructor
 public class SelectedSheetWriteHandler implements SheetWriteHandler {
 
@@ -49,8 +49,10 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
                 String sheetName = HIDDEN_SHEET_NAME_PREFIX + k;
                 Workbook workbook = writeWorkbookHolder.getWorkbook();
                 Sheet hiddenSheet = workbook.createSheet(sheetName);
-                // 开始的行数i，列数k
-                for (int i = 0, length = v.getSource().length; i < length; i++) hiddenSheet.createRow(i).createCell(k).setCellValue(v.getSource()[i]);
+                for (int i = 0, length = v.getSource().length; i < length; i++) {
+                    // 开始的行数i，列数k
+                    hiddenSheet.createRow(i).createCell(k).setCellValue(v.getSource()[i]);
+                }
 
                 String excelLine = getExcelLine(k);
                 // =hidden!$H:$1:$H$50 sheet为hidden的 H1列开始H50行数据获取下拉数组
@@ -59,8 +61,12 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
                 constraint = helper.createFormulaListConstraint(refers);
                 // 设置存储下拉列值得sheet为隐藏
                 int hiddenIndex = workbook.getSheetIndex(sheetName);
-                if (!workbook.isSheetHidden(hiddenIndex)) workbook.setSheetHidden(hiddenIndex, true);
-            } else constraint = helper.createExplicitListConstraint(v.getSource());
+                if (!workbook.isSheetHidden(hiddenIndex)) {
+                    workbook.setSheetHidden(hiddenIndex, true);
+                }
+            } else {
+                constraint = helper.createExplicitListConstraint(v.getSource());
+            }
             // 设置约束
             DataValidation validation = helper.createValidation(constraint, rangeList);
             // 阻止输入非下拉选项的值
@@ -69,7 +75,9 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
             if (validation instanceof XSSFDataValidation) {
                 validation.setSuppressDropDownArrow(true);
                 validation.setShowErrorBox(true);
-            } else validation.setSuppressDropDownArrow(false);
+            } else {
+                validation.setSuppressDropDownArrow(false);
+            }
             validation.createErrorBox("提示", "请输入下拉选项中的内容");
             sheet.addValidationData(validation);
         });
@@ -85,7 +93,9 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
         String line = "";
         int first = num / 26;
         int second = num % 26;
-        if (first > 0) line = (char) ('A' + first - 1) + "";
+        if (first > 0) {
+            line = (char)('A' + first - 1) + "";
+        }
         line += (char)('A' + second) + "";
         return line;
     }

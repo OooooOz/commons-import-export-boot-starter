@@ -5,28 +5,26 @@ import com.commons.importing.ImporterFactoryBuilder;
 
 class DefaultImporterFactoryBuilder<T> implements ImporterFactoryBuilder<T> {
     private int maxRows;
+    private DefaultImporting importing;
     private Class<T> entityClass;
 
-    DefaultImporterFactoryBuilder() {
+    DefaultImporterFactoryBuilder(DefaultImporting importing) {
+        this.importing = importing;
     }
 
-    public ImporterFactoryBuilder<T> maxRows(int maxRows) {
-        this.maxRows = maxRows;
+    public ImporterFactoryBuilder<T> maxRows(int paramInt) {
+        this.maxRows = paramInt;
         return this;
     }
 
-    public ImporterFactoryBuilder<T> entityClass(Class<T> entityClass) {
-        this.entityClass = entityClass;
+    public ImporterFactoryBuilder<T> entityClass(Class<T> paramClass) {
+        this.entityClass = paramClass;
         return this;
     }
-
 
     public ImporterFactory<T> build() {
-        DefaultImporterFactory<T> factory = new DefaultImporterFactory<>();
+        DefaultImporterFactory factory = new DefaultImporterFactory();
         factory.setEntityClass(this.entityClass);
-        if (this.maxRows > 0) {
-            factory.setMaxRows(this.maxRows);
-        }
-        return factory;
+        return (ImporterFactory<T>)factory;
     }
 }

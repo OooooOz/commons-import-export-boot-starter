@@ -1,21 +1,11 @@
 package com.commons.importing.configure;
 
+import com.alibaba.excel.EasyExcelFactory;
+import com.commons.importing.Importer;
+import com.commons.importing.model.ImportResultVO;
 
 import java.io.InputStream;
 
-import com.commons.importing.Importer;
-import com.commons.importing.model.ImportResultVO;
-import org.springframework.util.Assert;
-
-import com.alibaba.excel.EasyExcelFactory;
-
-/**
- * 默认导入器实现。
- * <p>
- * 基于 EasyExcel 读取文件流，并委托 {@link AbstractCommonDataListener} 完成校验、入库与结果统计。
- *
- * @param <T> 导入实体类型
- */
 public class DefaultImporter<T> implements Importer<T> {
 
     private final DefaultImporterFactory<T> factory;
@@ -24,9 +14,11 @@ public class DefaultImporter<T> implements Importer<T> {
 
     private Integer maxRows;
 
+    private boolean readAll;
+
     private ImportResultVO importResultVO;
 
-    public DefaultImporter(DefaultImporterFactory<T> factory) {
+    public DefaultImporter(DefaultImporterFactory factory) {
         this.factory = factory;
     }
 
@@ -41,14 +33,19 @@ public class DefaultImporter<T> implements Importer<T> {
     }
 
     @Override
-    public void startImport(AbstractCommonDataListener<T> listener) {
-        Assert.notNull(listener, "listener must not be null");
-        Assert.notNull(file, "import file must not be null");
-        Assert.notNull(factory.getEntityClass(), "entity class must not be null");
+    public void readAll(boolean readAll) {
+        this.readAll = readAll;
+    }
 
-        importResultVO = new ImportResultVO();
+    @Override
+    public void startImport(AbstractCommonDataListener listener) {
         listener.setMaxRows(maxRows);
-        EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet().doRead();
+        if (!readAll) {
+            EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet().doRead();
+        } else {
+            EasyExcelFactory.read(file, factory.getEntityClass(), listener).doReadAll();
+
+        }
         importResultVO = listener.getImportResultVO();
     }
 

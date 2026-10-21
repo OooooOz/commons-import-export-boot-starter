@@ -1,5 +1,6 @@
 package com.commons.exporting.infrastructure.service;
 
+import com.commons.exporting.infrastructure.exception.ExImportingBusinessException;
 import com.commons.exporting.configure.ExportAsyncProperties;
 import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
@@ -19,7 +20,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -79,7 +81,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
 
     @Override
     public void destroy() {
-        if (executor != null) executor.shutdown();
+        if (executor != null) {
+            executor.shutdown();
+        }
     }
 
     /**
@@ -90,7 +94,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
      */
     public void submit(Long taskId, ExportTaskCreateRequest request) {
         Executor target = executor;
-        if (target == null) throw new IllegalStateException("导出线程池未初始化");
+        if (target == null) {
+            throw new ExImportingBusinessException("导出线程池未初始化");
+        }
         ExportTaskCreateRequest safeRequest = snapshotRequest(request);
         AsyncExportContextSnapshot snapshot = asyncExportContextPropagator.capture();
         long submitThreadId = Thread.currentThread().getId();
@@ -125,8 +131,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
         try {
             remoteExportTaskClient.markProcessing(taskId);
             AsyncExportHandler<?> handler = handlerMap.get(ExportHandlerRegistrySupport.buildHandlerKey(request.getBusinessSystem(), request.getBusinessType()));
-            if (handler == null)
-                throw new IllegalArgumentException("未找到导出处理器，businessSystem=" + request.getBusinessSystem() + ", businessType=" + request.getBusinessType());
+            if (handler == null) {
+                throw new ExImportingBusinessException("未找到导出处理器，businessSystem=" + request.getBusinessSystem() + ", businessType=" + request.getBusinessType());
+            }
 
             String fileName = ExportExecutionSupport.normalizeFileName(StringUtils.hasText(request.getFileName()) ? request.getFileName() : handler.fileName(request));
             tempFile = File.createTempFile("starter-export-" + safeTaskId(taskId) + "-", ".xlsx");
@@ -146,7 +153,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
                 log.error("回写导出任务失败状态到core失败，taskId={}", taskId, remoteException);
             }
         } finally {
-            if (tempFile != null && tempFile.exists() && !tempFile.delete()) log.warn("删除导出临时文件失败：{}", tempFile.getAbsolutePath());
+            if (tempFile != null && tempFile.exists() && !tempFile.delete()) {
+                log.warn("删除导出临时文件失败：{}", tempFile.getAbsolutePath());
+            }
         }
     }
 
@@ -156,7 +165,9 @@ public class StarterAsyncExportExecutor implements InitializingBean, DisposableB
     }
 
     private ExportTaskCreateRequest snapshotRequest(ExportTaskCreateRequest request) {
-        if (request == null) return new ExportTaskCreateRequest();
+        if (request == null) {
+            return new ExportTaskCreateRequest();
+        }
         ExportTaskCreateRequest snapshot = new ExportTaskCreateRequest();
         snapshot.setTaskName(request.getTaskName());
         snapshot.setBusinessType(request.getBusinessType());

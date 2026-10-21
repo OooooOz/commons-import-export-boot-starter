@@ -1,13 +1,13 @@
 package com.commons.exporting.infrastructure.service;
 
 
-import com.eximport.export.shared.model.ExportTaskVO;
-import com.eximport.export.shared.support.ExportPayloadCopySupport;
 import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.domain.model.ExportTaskInfo;
 import com.commons.exporting.domain.service.Exporting;
 import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
+import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.export.shared.support.ExportPayloadCopySupport;
 
 /**
  * {@link Exporting} 的默认实现。
@@ -30,11 +30,12 @@ public class DefaultExporting implements Exporting {
     public ExportTaskInfo createTask(ExportTaskCreateRequest request) {
         ExportTaskCreateRequest safeRequest = snapshotRequest(request);
         ExportTaskVO task = remoteExportTaskClient.createTask(toDto(safeRequest));
-        ExportTaskInfo info = toInfo(task);
-        safeRequest.setFileName(info.getFileName());
-        if (task == null || task.getSubmitRequired() == null || task.getSubmitRequired())
-            starterAsyncExportExecutor.submit(info.getId(), safeRequest);
-        return info;
+        safeRequest.setFileName(task.getFileName());
+        if (task == null || task.getSubmitRequired() == null || task.getSubmitRequired()) {
+            starterAsyncExportExecutor.submit(task.getId(), safeRequest);
+        }
+        task = remoteExportTaskClient.getTask(task.getId());
+        return toInfo(task);
     }
 
     @Override
@@ -47,7 +48,9 @@ public class DefaultExporting implements Exporting {
      */
     private ExportTaskDTO toDto(ExportTaskCreateRequest request) {
         ExportTaskDTO dto = new ExportTaskDTO();
-        if (request == null) return dto;
+        if (request == null) {
+            return dto;
+        }
         dto.setTaskName(request.getTaskName());
         dto.setBusinessType(request.getBusinessType());
         dto.setBusinessSystem(request.getBusinessSystem());
@@ -63,7 +66,9 @@ public class DefaultExporting implements Exporting {
      */
     private ExportTaskInfo toInfo(ExportTaskVO vo) {
         ExportTaskInfo info = new ExportTaskInfo();
-        if (vo == null) return info;
+        if (vo == null) {
+            return info;
+        }
         info.setId(vo.getId());
         info.setBusinessSystem(vo.getBusinessSystem());
         info.setBusinessType(vo.getBusinessType());

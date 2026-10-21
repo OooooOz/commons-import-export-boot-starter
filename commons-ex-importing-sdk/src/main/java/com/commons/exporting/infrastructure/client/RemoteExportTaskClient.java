@@ -1,5 +1,6 @@
 package com.commons.exporting.infrastructure.client;
 
+import com.commons.exporting.infrastructure.exception.ExImportingBusinessException;
 import com.eximport.export.shared.model.BaseResponse;
 import com.eximport.export.shared.model.ExportTaskSuccessDTO;
 import com.eximport.export.shared.model.ExportTaskVO;
@@ -56,8 +57,8 @@ public class RemoteExportTaskClient {
     }
 
     private ExportTaskVO unwrap(BaseResponse<ExportTaskVO> body) {
-        if (body == null) throw new IllegalStateException("服务无响应");
-        if (!body.isSuccess()) throw new IllegalStateException("服务返回失败：" + body.getMessage());
+        if (body == null) throw new ExImportingBusinessException("服务无响应");
+        if (!body.isSuccess()) throw new ExImportingBusinessException("服务返回失败：" + body.getMessage());
         return body.getData();
     }
 }

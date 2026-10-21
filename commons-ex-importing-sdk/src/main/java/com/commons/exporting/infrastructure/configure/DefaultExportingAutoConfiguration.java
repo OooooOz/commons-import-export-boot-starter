@@ -1,6 +1,7 @@
 package com.commons.exporting.infrastructure.configure;
 
 
+import com.commons.exporting.infrastructure.exception.ExImportingBusinessException;
 import com.commons.exporting.configure.ExportAsyncProperties;
 import com.commons.exporting.configure.ExportCoreProperties;
 import com.commons.exporting.domain.service.Exporting;
@@ -23,7 +24,6 @@ import feign.Feign;
 import feign.Request;
 import feign.Util;
 import feign.codec.Decoder;
-import feign.codec.EncodeException;
 import feign.codec.Encoder;
 import feign.form.FormEncoder;
 import org.springframework.beans.factory.ObjectProvider;
@@ -101,7 +101,7 @@ public class DefaultExportingAutoConfiguration {
         }
         BusinessExportFileUploader businessExportFileUploader = businessExportFileUploaderProvider.getIfAvailable();
         if (businessExportFileUploader == null) {
-            throw new IllegalStateException("当前已配置 common.export.core.generated-file-upload-mode=BUSINESS，但未声明 BusinessExportFileUploader Bean");
+            throw new ExImportingBusinessException("当前已配置 common.export.core.generated-file-upload-mode=BUSINESS，但未声明 BusinessExportFileUploader Bean");
         }
         return new BusinessExportGeneratedFileUploader(remoteExportTaskClient, businessExportFileUploader);
     }
@@ -163,7 +163,7 @@ public class DefaultExportingAutoConfiguration {
             try {
                 requestTemplate.body(objectMapper.writeValueAsBytes(object), StandardCharsets.UTF_8);
             } catch (IOException e) {
-                throw new EncodeException("JSON请求体序列化失败", e);
+                throw new ExImportingBusinessException("JSON请求体序列化失败", e);
             }
         };
     }

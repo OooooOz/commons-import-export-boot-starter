@@ -1,5 +1,6 @@
 package com.commons.exporting.infrastructure.file;
 
+import com.commons.exporting.infrastructure.exception.ExImportingBusinessException;
 import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
 import org.springframework.util.StringUtils;
@@ -25,7 +26,7 @@ public class BusinessExportGeneratedFileUploader implements ExportGeneratedFileU
     public void upload(Long taskId, ExportTaskCreateRequest request, File file, String fileName) {
         String fileUrl = businessExportFileUploader.upload(request, file, fileName);
         if (!StringUtils.hasText(fileUrl)) {
-            throw new IllegalStateException("业务系统上传导出文件成功后必须返回可访问的fileUrl");
+            throw new ExImportingBusinessException("业务系统上传导出文件成功后必须返回可访问的fileUrl");
         }
         remoteExportTaskClient.reportSuccess(taskId, fileName, fileUrl.trim());
     }

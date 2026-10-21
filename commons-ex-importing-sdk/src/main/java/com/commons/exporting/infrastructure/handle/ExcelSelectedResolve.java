@@ -1,5 +1,7 @@
 package com.commons.exporting.infrastructure.handle;
 
+import java.lang.reflect.InvocationTargetException;
+
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,20 +24,28 @@ public class ExcelSelectedResolve {
     private int lastRow;
 
     public String[] resolveSelectedSource(ExcelSelected excelSelected) {
-        if (excelSelected == null) return new String[0];
+        if (excelSelected == null) {
+            return new String[0];
+        }
 
         // 获取固定下拉框的内容
         String[] annotationSource = excelSelected.source();
-        if (annotationSource.length > 0) return annotationSource;
+        if (annotationSource.length > 0) {
+            return annotationSource;
+        }
 
         // 获取动态下拉框的内容
         Class<? extends ExcelDynamicSelect>[] classes = excelSelected.sourceClass();
-        if (classes.length > 0) try {
-            ExcelDynamicSelect excelDynamicSelect = classes[0].getDeclaredConstructor().newInstance();
-            String[] dynamicSelectSource = excelDynamicSelect.getSource();
-            if (dynamicSelectSource != null && dynamicSelectSource.length > 0) return dynamicSelectSource;
-        } catch (Exception e) {
-            log.error("解析动态下拉框数据异常", e);
+        if (classes.length > 0) {
+            try {
+                ExcelDynamicSelect excelDynamicSelect = classes[0].getDeclaredConstructor().newInstance();
+                String[] dynamicSelectSource = excelDynamicSelect.getSource();
+                if (dynamicSelectSource != null && dynamicSelectSource.length > 0) {
+                    return dynamicSelectSource;
+                }
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                log.error("解析动态下拉框数据异常", e);
+            }
         }
         return new String[0];
     }
