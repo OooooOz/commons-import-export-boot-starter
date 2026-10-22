@@ -1,22 +1,20 @@
 package com.commons.importing.configure;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.compress.utils.Lists;
-
+import cn.hutool.core.exceptions.ExceptionUtil;
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.event.AnalysisEventListener;
 import com.alibaba.excel.exception.ExcelDataConvertException;
 import com.alibaba.excel.util.ListUtils;
 import com.commons.importing.model.ImportResultVO;
-
-import cn.hutool.core.exceptions.ExceptionUtil;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.compress.utils.Lists;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public abstract class AbstractCommonDataListener<T> extends AnalysisEventListener<T> {
@@ -148,7 +146,6 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
             return;
         }
         this.doBatchSave();
-        importResultVO.addSuccessCount(list.size());
         list = ListUtils.newArrayListWithExpectedSize(batchSaveCount);
     }
 
