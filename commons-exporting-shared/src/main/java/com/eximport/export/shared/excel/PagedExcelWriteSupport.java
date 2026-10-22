@@ -41,7 +41,7 @@ public class PagedExcelWriteSupport {
                 sheetName,
                 (Class) headClass,
                 writerBuilderCustomizer,
-                (LargeExcelWriter.PageDataLoader) loader::load,
+                (PageDataLoader) loader::load,
                 pageSize,
                 maxRowsPerSheet,
                 maxQueryPages);
@@ -56,15 +56,25 @@ public class PagedExcelWriteSupport {
         if (handler == null) {
             throw new IllegalArgumentException("handler不能为空");
         }
-        writeExcel(
+        largeExcelWriter.write(
                 tempFile,
                 handler.sheetName(request),
                 handler.headClass(),
                 writerBuilder -> handler.customizeWriter(request, writerBuilder),
-                (pageNo, currentPageSize) -> handler.queryPage(request, pageNo, currentPageSize),
+                // handler 声明的 pageSize 优先；未声明（<=0）时沿用调用方传入的配置值
+                new PageDataLoader<T>() {
+                    @Override
+                    public List<T> load(long pageNo, int effectivePageSize) {
+                        return handler.queryPage(request, pageNo, effectivePageSize);
+                    }
+
+                    @Override
+                    public int pageSize() {
+                        return handler.pageSize();
+                    }
+                },
                 pageSize,
                 maxRowsPerSheet,
                 maxQueryPages);
     }
 }
-

@@ -1,7 +1,6 @@
 package com.commons.exporting.infrastructure.configure;
 
 
-import com.commons.exporting.infrastructure.exception.ExImportingBusinessException;
 import com.commons.exporting.configure.ExportAsyncProperties;
 import com.commons.exporting.configure.ExportCoreProperties;
 import com.commons.exporting.domain.service.Exporting;
@@ -11,14 +10,11 @@ import com.commons.exporting.infrastructure.context.AsyncExportContextContributo
 import com.commons.exporting.infrastructure.context.AsyncExportContextPropagator;
 import com.commons.exporting.infrastructure.context.CompositeAsyncExportContextPropagator;
 import com.commons.exporting.infrastructure.context.RequestHeaderAsyncExportContextContributor;
-import com.commons.exporting.infrastructure.file.BusinessExportFileUploader;
-import com.commons.exporting.infrastructure.file.BusinessExportGeneratedFileUploader;
-import com.commons.exporting.infrastructure.file.CoreExportGeneratedFileUploader;
-import com.commons.exporting.infrastructure.file.ExportGeneratedFileUploader;
-import com.commons.exporting.infrastructure.file.GeneratedFileUploadMode;
+import com.commons.exporting.infrastructure.file.*;
 import com.commons.exporting.infrastructure.handle.AsyncExportHandler;
 import com.commons.exporting.infrastructure.service.DefaultExporting;
 import com.commons.exporting.infrastructure.service.StarterAsyncExportExecutor;
+import com.eximport.export.shared.exception.ExImportingBusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Feign;
 import feign.Request;
@@ -151,15 +147,21 @@ public class DefaultExportingAutoConfiguration {
     }
 
     private String trimTrailingSlash(String value) {
-        if (!StringUtils.hasText(value)) return "http://10.39.11.156:8091";
+        if (!StringUtils.hasText(value)) {
+            return "http://10.39.11.156:8091";
+        }
         String result = value.trim();
-        while (result.endsWith("/")) result = result.substring(0, result.length() - 1);
+        while (result.endsWith("/")) {
+            result = result.substring(0, result.length() - 1);
+        }
         return result;
     }
 
     private Encoder jsonEncoder(ObjectMapper objectMapper) {
         return (object, bodyType, requestTemplate) -> {
-            if (object == null) return;
+            if (object == null) {
+                return;
+            }
             try {
                 requestTemplate.body(objectMapper.writeValueAsBytes(object), StandardCharsets.UTF_8);
             } catch (IOException e) {
@@ -170,7 +172,9 @@ public class DefaultExportingAutoConfiguration {
 
     private Decoder jsonDecoder(ObjectMapper objectMapper) {
         return (response, type) -> {
-            if (response.body() == null) return Util.emptyValueOf(type);
+            if (response.body() == null) {
+                return Util.emptyValueOf(type);
+            }
             return readResponseBody(objectMapper, response.body().asInputStream(), type);
         };
     }

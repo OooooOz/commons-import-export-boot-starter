@@ -1,6 +1,7 @@
 package org.commons.infrastructure.service;
 
 
+import com.eximport.export.shared.exception.ExImportingBusinessException;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -97,7 +98,7 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
                 lastException = e;
             }
         }
-        throw new IllegalStateException("生成唯一导出任务号失败，请稍后重试", lastException);
+        throw new ExImportingBusinessException("生成唯一导出任务号失败，请稍后重试", lastException);
     }
 }
 

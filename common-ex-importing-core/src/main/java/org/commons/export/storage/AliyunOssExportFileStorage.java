@@ -1,5 +1,6 @@
 package org.commons.export.storage;
 
+import org.commons.infrastructure.util.CommonUtil;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.model.ObjectMetadata;
@@ -24,12 +25,12 @@ public class AliyunOssExportFileStorage implements ExportFileStorage {
 
     public AliyunOssExportFileStorage(ExportStorageProperties properties) {
         this.properties = properties;
-        if (!StringUtils.hasText(properties.getEndpoint())
-                || !StringUtils.hasText(properties.getBucketName())
-                || !StringUtils.hasText(properties.getAccessKeyId())
-                || !StringUtils.hasText(properties.getAccessKeySecret())) {
-            throw new IllegalArgumentException("OSS配置不完整，请配置endpoint、bucketName、accessKeyId、accessKeySecret");
-        }
+        CommonUtil.checkExImportingBusinessException(
+                StringUtils.hasText(properties.getEndpoint())
+                        && StringUtils.hasText(properties.getBucketName())
+                        && StringUtils.hasText(properties.getAccessKeyId())
+                        && StringUtils.hasText(properties.getAccessKeySecret()),
+                "OSS配置不完整，请配置endpoint、bucketName、accessKeyId、accessKeySecret");
         this.ossClient = new OSSClientBuilder().build(
                 properties.getEndpoint(),
                 properties.getAccessKeyId(),

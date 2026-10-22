@@ -1,5 +1,7 @@
 package org.commons.application.impl;
 
+import com.eximport.export.shared.exception.ExImportingBusinessException;
+import org.commons.infrastructure.util.CommonUtil;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -105,7 +107,7 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     @Override
     public ExportTaskVO uploadSuccess(Long id, File file, String fileName, String message) {
         ExportTaskProcess task = exportTaskProcessService.getById(id);
-        if (task == null) throw new IllegalArgumentException("导出任务不存在，id=" + id);
+        CommonUtil.checkExImportingBusinessException(task != null, "导出任务不存在，id=" + id);
         String normalizedFileName = ExportExecutionSupport.normalizeFileName(fileName);
         String objectName = ExportStorageSupport.buildObjectName(exportStorageProperties.getObjectPrefix(), task.getTaskNo(), normalizedFileName);
         StorageResult storageResult = exportFileStorage.upload(file, objectName, ExportStorageSupport.XLSX_CONTENT_TYPE);
@@ -116,8 +118,8 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     @Override
     public ExportTaskVO reportSuccess(Long id, String fileName, String fileUrl, String message) {
         ExportTaskProcess task = exportTaskProcessService.getById(id);
-        if (task == null) throw new IllegalArgumentException("导出任务不存在，id=" + id);
-        if (!StringUtils.hasText(fileUrl)) throw new IllegalArgumentException("fileUrl不能为空");
+        CommonUtil.checkExImportingBusinessException(task != null, "导出任务不存在，id=" + id);
+        CommonUtil.checkExImportingBusinessException(StringUtils.hasText(fileUrl), "fileUrl不能为空");
         String normalizedFileName = ExportExecutionSupport.normalizeFileName(fileName);
         return finishSuccess(task, normalizedFileName, fileUrl.trim(), message);
     }
@@ -255,7 +257,7 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
                 lastException = e;
             }
         }
-        throw new IllegalStateException("生成唯一导出任务号失败，请稍后重试", lastException);
+        throw new ExImportingBusinessException("生成唯一导出任务号失败，请稍后重试", lastException);
     }
 
 

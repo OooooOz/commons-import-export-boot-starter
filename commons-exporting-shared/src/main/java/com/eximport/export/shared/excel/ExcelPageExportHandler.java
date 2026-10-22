@@ -34,5 +34,18 @@ public interface ExcelPageExportHandler<R, T> {
      * 分页查询导出数据。
      */
     List<T> queryPage(R request, long pageNo, int pageSize);
+
+    /**
+     * 当前处理器期望的单页查询条数。
+     * <p>
+     * 返回大于 0 的值时优先生效，覆盖调用方传入的配置 pageSize；
+     * 返回小于等于 0 时回退为调用方传入的配置值（如 common.export.async.pageSize）。
+     * <p>
+     * 当业务实现内部固定了分页大小时，必须覆写该方法返回一致值，
+     * 否则分页终止条件（返回条数不足一页即结束）会误判最后一页导致丢数据。
+     */
+    default int pageSize() {
+        return 0;
+    }
 }
 

@@ -1,5 +1,7 @@
 package org.commons.export.storage;
 
+import com.eximport.export.shared.exception.ExImportingBusinessException;
+import org.commons.infrastructure.util.CommonUtil;
 import org.commons.export.config.ExportStorageProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -30,24 +32,20 @@ public class LocalExportFileStorage implements ExportFileStorage {
         try {
             Path root = Paths.get(properties.getLocalRoot()).toAbsolutePath().normalize();
             Path target = root.resolve(objectName).normalize();
-            if (!target.startsWith(root)) {
-                throw new IllegalArgumentException("非法文件路径");
-            }
+            CommonUtil.checkExImportingBusinessException(target.startsWith(root), "非法文件路径");
             Files.createDirectories(target.getParent());
             Files.copy(file.toPath(), target, StandardCopyOption.REPLACE_EXISTING);
             String url = buildDownloadUrl(objectName);
             return new StorageResult(objectName, url);
         } catch (IOException e) {
-            throw new RuntimeException("保存本地导出文件失败", e);
+            throw new ExImportingBusinessException("保存本地导出文件失败", e);
         }
     }
 
     public File getFile(String objectName) {
         Path root = Paths.get(properties.getLocalRoot()).toAbsolutePath().normalize();
         Path target = root.resolve(objectName).normalize();
-        if (!target.startsWith(root)) {
-            throw new IllegalArgumentException("非法文件路径");
-        }
+        CommonUtil.checkExImportingBusinessException(target.startsWith(root), "非法文件路径");
         return target.toFile();
     }
 

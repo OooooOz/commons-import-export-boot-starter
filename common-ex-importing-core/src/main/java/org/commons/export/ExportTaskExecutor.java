@@ -1,5 +1,6 @@
 package org.commons.export;
 
+import org.commons.infrastructure.util.CommonUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.eximport.export.shared.excel.PagedExcelWriteSupport;
 import com.eximport.export.shared.support.ExportExecutionSupport;
@@ -85,9 +86,7 @@ public class ExportTaskExecutor {
 
     public void submit(Long taskId, ExportTaskDTO dto) {
         Executor target = executor;
-        if (target == null) {
-            throw new IllegalStateException("导出线程池未初始化");
-        }
+        CommonUtil.checkExImportingBusinessException(target != null, "导出线程池未初始化");
         ExportTaskDTO safeDto = snapshotDto(dto);
         try {
             target.execute(() -> runTask(taskId, safeDto));
@@ -113,9 +112,7 @@ public class ExportTaskExecutor {
         try {
             String handlerKey = ExportHandlerRegistrySupport.buildHandlerKey(task.getBusinessSystem(), task.getBusinessType());
             ExportTaskHandler<?> handler = handlerMap.get(handlerKey);
-            if (handler == null) {
-                throw new IllegalArgumentException("未找到导出处理器，businessSystem=" + task.getBusinessSystem() + ", businessType=" + task.getBusinessType());
-            }
+            CommonUtil.checkExImportingBusinessException(handler != null, "未找到导出处理器，businessSystem=" + task.getBusinessSystem() + ", businessType=" + task.getBusinessType());
 
             String fileName = ExportExecutionSupport.normalizeFileName(StringUtils.hasText(task.getFileName()) ? task.getFileName() : handler.fileName(dto));
             tempFile = File.createTempFile("export-" + task.getTaskNo() + "-", ".xlsx");

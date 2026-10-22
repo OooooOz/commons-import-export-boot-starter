@@ -1,5 +1,6 @@
 package org.commons.application.impl;
 
+import org.commons.infrastructure.util.CommonUtil;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -65,13 +66,9 @@ public class CommonBusinessConfigServiceImpl implements CommonBusinessConfigServ
 
     @Override
     public BusinessConfigVO update(BusinessConfigSaveDTO dto) {
-        if (dto.getId() == null) {
-            throw new IllegalArgumentException("id不能为空");
-        }
+        CommonUtil.checkExImportingBusinessException(dto.getId() != null, "id不能为空");
         BusinessConfig entity = businessConfigService.getById(dto.getId());
-        if (entity == null) {
-            throw new IllegalArgumentException("业务配置不存在");
-        }
+        CommonUtil.checkExImportingBusinessException(entity != null, "业务配置不存在");
         String configType = normalizeConfigType(dto.getConfigType());
         String businessSystem = normalize(dto.getBusinessSystem());
         String businessType = normalize(dto.getBusinessType());
@@ -86,9 +83,7 @@ public class CommonBusinessConfigServiceImpl implements CommonBusinessConfigServ
 
     @Override
     public boolean delete(Long id) {
-        if (id == null) {
-            throw new IllegalArgumentException("id不能为空");
-        }
+        CommonUtil.checkExImportingBusinessException(id != null, "id不能为空");
         return businessConfigService.removeById(id);
     }
 
@@ -124,9 +119,7 @@ public class CommonBusinessConfigServiceImpl implements CommonBusinessConfigServ
                 .eq(BusinessConfig::getBusinessSystem, businessSystem)
                 .eq(BusinessConfig::getBusinessType, businessType)
                 .ne(excludeId != null, BusinessConfig::getId, excludeId);
-        if (businessConfigService.count(queryWrapper) > 0) {
-            throw new IllegalArgumentException("业务系统和业务类型组合已存在");
-        }
+        CommonUtil.checkExImportingBusinessException(businessConfigService.count(queryWrapper) <= 0, "业务系统和业务类型组合已存在");
     }
 
     private BusinessConfigVO toVO(BusinessConfig entity) {
@@ -142,13 +135,9 @@ public class CommonBusinessConfigServiceImpl implements CommonBusinessConfigServ
 
     private String normalizeConfigType(String configType) {
         String normalized = normalize(configType);
-        if (!StringUtils.hasText(normalized)) {
-            throw new IllegalArgumentException("配置类型不能为空");
-        }
+        CommonUtil.checkExImportingBusinessException(StringUtils.hasText(normalized), "配置类型不能为空");
         String upper = normalized.toUpperCase();
-        if (!CONFIG_TYPE_IMPORT.equals(upper) && !CONFIG_TYPE_EXPORT.equals(upper)) {
-            throw new IllegalArgumentException("配置类型只支持IMPORT或EXPORT");
-        }
+        CommonUtil.checkExImportingBusinessException(CONFIG_TYPE_IMPORT.equals(upper) || CONFIG_TYPE_EXPORT.equals(upper), "配置类型只支持IMPORT或EXPORT");
         return upper;
     }
 }
