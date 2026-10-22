@@ -1,14 +1,13 @@
 package org.commons.application.impl;
 
-import com.eximport.export.shared.exception.ExImportingBusinessException;
-import org.commons.infrastructure.util.CommonUtil;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.eximport.export.shared.model.ExportTaskVO;
-import com.eximport.export.shared.support.ExportExecutionSupport;
-import com.eximport.export.shared.support.ExportStorageSupport;
+import com.eximport.shared.exporting.exception.ExImportingBusinessException;
+import com.eximport.shared.exporting.model.ExportTaskVO;
+import com.eximport.shared.exporting.support.ExportExecutionSupport;
+import com.eximport.shared.exporting.support.ExportStorageSupport;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
 import org.commons.application.CommonExportTaskProcessService;
 import org.commons.domain.model.dto.ExportTaskDTO;
@@ -22,6 +21,7 @@ import org.commons.export.notify.ExportTaskNotifier;
 import org.commons.export.storage.ExportFileStorage;
 import org.commons.export.storage.LocalExportFileStorage;
 import org.commons.export.storage.StorageResult;
+import org.commons.infrastructure.util.CommonUtil;
 import org.commons.infrastructure.util.ExportTaskNoGenerator;
 import org.commons.infrastructure.util.ExportTaskRequestDedupLockManager;
 import org.commons.infrastructure.util.ExportTaskRequestFingerprintUtil;
@@ -76,7 +76,9 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
         String requestFingerprint = ExportTaskRequestFingerprintUtil.build(dto);
         return requestDedupLockManager.execute(requestFingerprint, () -> {
             ExportTaskProcess existing = exportTaskProcessService.findReusableTask(requestFingerprint);
-            if (existing != null) return toVO(existing, false);
+            if (existing != null) {
+                return toVO(existing, false);
+            }
             ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
             entity.setRequestFingerprint(requestFingerprint);
             entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
@@ -180,9 +182,13 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     @Override
     public LocalExportFileDownload loadLocalFile(String objectName) {
         LocalExportFileStorage localExportFileStorage = localExportFileStorageProvider.getIfAvailable();
-        if (localExportFileStorage == null) return LocalExportFileDownload.notFound("当前未启用本地文件存储");
+        if (localExportFileStorage == null) {
+            return LocalExportFileDownload.notFound("当前未启用本地文件存储");
+        }
         File file = localExportFileStorage.getFile(objectName);
-        if (!file.exists() || !file.isFile()) return LocalExportFileDownload.notFound("文件不存在");
+        if (!file.exists() || !file.isFile()) {
+            return LocalExportFileDownload.notFound("文件不存在");
+        }
         return LocalExportFileDownload.success(file);
     }
 
@@ -198,22 +204,32 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
 
     private String buildOrderByClause(String sort, String order) {
         List<String> sortFields = splitCsv(sort);
-        if (sortFields.isEmpty()) return DEFAULT_ORDER_BY;
+        if (sortFields.isEmpty()) {
+            return DEFAULT_ORDER_BY;
+        }
         List<String> orderDirections = splitCsv(order);
         List<String> orderByItems = new ArrayList<>();
         for (int i = 0; i < sortFields.size(); i++) {
             String column = SORT_FIELD_MAPPING.get(sortFields.get(i));
-            if (column == null) continue;
+            if (column == null) {
+                continue;
+            }
             String direction = normalizeDirection(resolveDirection(orderDirections, i));
             orderByItems.add(column + " " + direction.toUpperCase(Locale.ROOT));
         }
-        if (orderByItems.isEmpty()) return DEFAULT_ORDER_BY;
+        if (orderByItems.isEmpty()) {
+            return DEFAULT_ORDER_BY;
+        }
         return String.join(", ", orderByItems);
     }
 
     private String resolveDirection(List<String> orderDirections, int index) {
-        if (orderDirections.isEmpty()) return DESC;
-        if (index < orderDirections.size()) return orderDirections.get(index);
+        if (orderDirections.isEmpty()) {
+            return DESC;
+        }
+        if (index < orderDirections.size()) {
+            return orderDirections.get(index);
+        }
         return orderDirections.get(orderDirections.size() - 1);
     }
 
@@ -222,7 +238,9 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     private List<String> splitCsv(String value) {
-        if (value == null || value.trim().isEmpty()) return Collections.emptyList();
+        if (value == null || value.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
         return Arrays.stream(value.split(","))
                 .map(this::trimToNull)
                 .filter(java.util.Objects::nonNull)
@@ -230,7 +248,9 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     private String trimToNull(String value) {
-        if (value == null) return null;
+        if (value == null) {
+            return null;
+        }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
@@ -240,7 +260,9 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity, Boolean submitRequired) {
-        if (entity == null) return null;
+        if (entity == null) {
+            return null;
+        }
         ExportTaskVO vo = BeanUtil.copyProperties(entity, ExportTaskVO.class);
         vo.setSubmitRequired(submitRequired);
         return vo;

@@ -1,9 +1,9 @@
 package com.commons.exporting.infrastructure.client;
 
-import com.eximport.export.shared.model.BaseResponse;
-import com.eximport.export.shared.model.ExportTaskSuccessDTO;
-import com.eximport.export.shared.model.ExportTaskVO;
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
+import com.eximport.shared.exporting.model.BaseResponse;
+import com.eximport.shared.exporting.model.ExportTaskSuccessDTO;
+import com.eximport.shared.exporting.model.ExportTaskVO;
 import feign.Headers;
 import feign.Param;
 import feign.RequestLine;

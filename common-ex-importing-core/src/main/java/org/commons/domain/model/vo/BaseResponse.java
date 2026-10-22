@@ -5,7 +5,9 @@ import org.commons.domain.model.enums.ResponseEnum;
 /**
  * 返回基类
  */
-public class BaseResponse<T> extends com.eximport.export.shared.model.BaseResponse<T> {
+public class BaseResponse<T> extends com.eximport.shared.exporting.model.BaseResponse<T> {
+
+    private static final long serialVersionUID = 3362676517233336400L;
 
     public BaseResponse() {
         setMessage(ResponseEnum.SUCCESS.getMsg());

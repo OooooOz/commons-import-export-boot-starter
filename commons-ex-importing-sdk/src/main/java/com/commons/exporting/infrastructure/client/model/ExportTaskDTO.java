@@ -1,6 +1,6 @@
 package com.commons.exporting.infrastructure.client.model;
 
-import com.eximport.export.shared.model.ExportTaskFields;
+import com.eximport.shared.exporting.model.ExportTaskFields;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -12,6 +12,7 @@ import java.util.Date;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class ExportTaskDTO extends ExportTaskFields {
+    private static final long serialVersionUID = 2554883457171122040L;
     private String fileUrl;
     private Date startTime;
     private Date endTime;

@@ -1,7 +1,7 @@
 package org.commons.adapter.api;
 
-import com.eximport.export.shared.model.ExportTaskSuccessDTO;
-import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.shared.exporting.model.ExportTaskSuccessDTO;
+import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.adapter.dto.ExportTaskFailureDTO;
 import org.commons.application.CommonExportTaskProcessService;
 import org.commons.domain.model.dto.ExportTaskDTO;

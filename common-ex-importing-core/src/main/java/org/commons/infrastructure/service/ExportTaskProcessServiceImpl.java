@@ -1,12 +1,12 @@
 package org.commons.infrastructure.service;
 
 
-import com.eximport.export.shared.exception.ExImportingBusinessException;
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.shared.exporting.exception.ExImportingBusinessException;
+import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.domain.mapper.ExportTaskProcessMapper;
 import org.commons.domain.model.dto.ExportTaskDTO;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
@@ -49,7 +49,9 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
         String requestFingerprint = ExportTaskRequestFingerprintUtil.build(dto);
         return requestDedupLockManager.execute(requestFingerprint, () -> {
             ExportTaskProcess existing = findReusableTask(requestFingerprint);
-            if (existing != null) return toVO(existing, false);
+            if (existing != null) {
+                return toVO(existing, false);
+            }
             ExportTaskProcess entity = BeanUtil.copyProperties(dto, ExportTaskProcess.class);
             entity.setRequestFingerprint(requestFingerprint);
             entity.setStatus(ExportTaskStatusEnum.INIT.getCode());
@@ -62,7 +64,9 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
 
     @Override
     public ExportTaskProcess findReusableTask(String requestFingerprint) {
-        if (requestFingerprint == null || requestFingerprint.trim().isEmpty()) return null;
+        if (requestFingerprint == null || requestFingerprint.trim().isEmpty()) {
+            return null;
+        }
         return baseMapper.selectLatestReusableTask(requestFingerprint, REUSABLE_STATUSES);
     }
 
@@ -81,7 +85,9 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
     }
 
     private ExportTaskVO toVO(ExportTaskProcess entity, Boolean submitRequired) {
-        if (entity == null) return null;
+        if (entity == null) {
+            return null;
+        }
         ExportTaskVO vo = BeanUtil.copyProperties(entity, ExportTaskVO.class);
         vo.setSubmitRequired(submitRequired);
         return vo;

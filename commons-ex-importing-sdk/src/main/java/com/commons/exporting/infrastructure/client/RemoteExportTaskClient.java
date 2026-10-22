@@ -1,10 +1,10 @@
 package com.commons.exporting.infrastructure.client;
 
 import com.commons.exporting.infrastructure.client.model.ExportTaskDTO;
-import com.eximport.export.shared.exception.ExImportingBusinessException;
-import com.eximport.export.shared.model.BaseResponse;
-import com.eximport.export.shared.model.ExportTaskSuccessDTO;
-import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.shared.exporting.exception.ExImportingBusinessException;
+import com.eximport.shared.exporting.model.BaseResponse;
+import com.eximport.shared.exporting.model.ExportTaskSuccessDTO;
+import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.springframework.util.StringUtils;
 
 import java.io.File;

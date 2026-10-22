@@ -7,11 +7,11 @@ import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.builder.ExcelWriterSheetBuilder;
 import com.alibaba.excel.write.handler.CellWriteHandler;
 import com.alibaba.excel.write.metadata.WriteSheet;
-import com.eximport.export.shared.excel.converter.BigDecimalFormatExcelConverter;
-import com.eximport.export.shared.excel.loader.BatchData;
-import com.eximport.export.shared.excel.loader.BatchDataLoader;
-import com.eximport.export.shared.excel.loader.MultiSheetWriterSpec;
-import com.eximport.export.shared.exception.ExImportingBusinessException;
+import com.eximport.shared.exporting.excel.ExcelWriterUtils;
+import com.eximport.shared.exporting.excel.loader.BatchDataLoader;
+import com.eximport.shared.exporting.exception.ExImportingBusinessException;
+import com.eximport.shared.exporting.model.BatchData;
+import com.eximport.shared.exporting.model.MultiSheetWriterSpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -170,51 +170,24 @@ public final class CommonExcelUtil {
         if (pageSize <= 0) {
             throw new ExImportingBusinessException("导出单批条数必须大于0");
         }
-        ExcelWriter excelWriter = null;
         try {
             initResponseHeader(fileName, response);
-            ExcelWriterBuilder writerBuilder = EasyExcelFactory.write(response.getOutputStream(), headClass).inMemory(false);
-            // 注册BigDecimal格式转换器：识别@BigDecimalFormat按注解scale/roundingMode舍入后写出
-            writerBuilder.registerConverter(new BigDecimalFormatExcelConverter());
-            if (handlers != null) {
-                for (CellWriteHandler handler : handlers) {
-                    if (handler != null) {
-                        writerBuilder.registerWriteHandler(handler);
-                    }
-                }
-            }
-            excelWriter = writerBuilder.build();
-            WriteSheet writeSheet = EasyExcelFactory.writerSheet(sheetName).build();
-            int pageNum = 1;
-            while (true) {
-                BatchData<T> batchData = loader.load(pageNum);
-                List<T> batch = batchData == null ? null : batchData.getRows();
-                if (batch == null || batch.isEmpty()) {
-                    if (pageNum == 1) {
-                        excelWriter.write(Collections.emptyList(), writeSheet);
-                    }
-                    break;
-                }
-                excelWriter.write(batch, writeSheet);
-                // 不足整页说明已是最后一页，停止继续查询
-                if (batch.size() < pageSize) {
-                    break;
-                }
-                // 已知总页数且当前已是最后一页，无需再多一次空探测
-                if (batchData.getTotalPages() > 0 && pageNum >= batchData.getTotalPages()) {
-                    break;
-                }
-                pageNum++;
-            }
+            // 复用 shared 模块 LargeExcelWriter 的分页调度/多sheet/终止规则逻辑
+            new ExcelWriterUtils().write(
+                    response.getOutputStream(),
+                    sheetName,
+                    headClass,
+                    null,
+                    handlers,
+                    loader,
+                    pageSize,
+                    ExcelWriterUtils.MAX_ROWS_PER_SHEET,
+                    Integer.MAX_VALUE);
         } catch (ExImportingBusinessException e) {
             throw e;
         } catch (Exception e) {
             log.error("Excel流式导出失败：{}", fileName, e);
             throw new ExImportingBusinessException(e.getMessage());
-        } finally {
-            if (excelWriter != null) {
-                excelWriter.finish();
-            }
         }
     }
 

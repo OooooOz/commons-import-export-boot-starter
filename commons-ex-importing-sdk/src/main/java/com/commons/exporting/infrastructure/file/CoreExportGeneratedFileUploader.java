@@ -1,7 +1,7 @@
 package com.commons.exporting.infrastructure.file;
 
-import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.infrastructure.client.RemoteExportTaskClient;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 
 import java.io.File;
 

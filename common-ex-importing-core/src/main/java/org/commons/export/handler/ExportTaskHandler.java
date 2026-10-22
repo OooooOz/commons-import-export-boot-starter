@@ -1,7 +1,7 @@
 package org.commons.export.handler;
 
-import com.eximport.export.shared.excel.ExcelPageExportHandler;
-import com.eximport.export.shared.support.ExportHandlerDescriptor;
+import com.eximport.shared.exporting.excel.handler.ExcelPageExportHandler;
+import com.eximport.shared.exporting.support.ExportHandlerDescriptor;
 import org.commons.domain.model.dto.ExportTaskDTO;
 
 /**
@@ -11,15 +11,6 @@ import org.commons.domain.model.dto.ExportTaskDTO;
  * @param <T> EasyExcel 表头/数据行类型
  */
 public interface ExportTaskHandler<T> extends ExcelPageExportHandler<ExportTaskDTO, T>, ExportHandlerDescriptor {
-    /**
-     * 业务系统，需与 ExportTaskDTO.businessSystem 一致。
-     */
-    String businessSystem();
-
-    /**
-     * 业务类型，需与 ExportTaskDTO.businessType 一致。
-     */
-    String businessType();
 
     /**
      * 默认文件名，不含路径，建议返回 .xlsx 后缀。

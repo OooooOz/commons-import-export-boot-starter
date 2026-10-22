@@ -1,7 +1,7 @@
 package org.commons.adapter.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.eximport.export.shared.model.ExportTaskVO;
+import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
 import org.commons.application.CommonExportTaskProcessService;
 import org.commons.domain.model.dto.ExportTaskDTO;

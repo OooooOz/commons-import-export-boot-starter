@@ -1,6 +1,6 @@
 package org.commons.infrastructure.util;
 
-import com.eximport.export.shared.support.KeyedLockSupport;
+import com.eximport.shared.exporting.support.KeyedLockSupport;
 import org.springframework.stereotype.Component;
 
 import java.util.function.Supplier;

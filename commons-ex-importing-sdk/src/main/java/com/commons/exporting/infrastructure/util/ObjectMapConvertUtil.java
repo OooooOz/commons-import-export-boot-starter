@@ -1,6 +1,6 @@
 package com.commons.exporting.infrastructure.util;
 
-import com.eximport.export.shared.exception.ExImportingBusinessException;
+import com.eximport.shared.exporting.exception.ExImportingBusinessException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;

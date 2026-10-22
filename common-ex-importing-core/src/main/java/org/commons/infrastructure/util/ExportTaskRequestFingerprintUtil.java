@@ -1,7 +1,7 @@
 package org.commons.infrastructure.util;
 
-import com.eximport.export.shared.model.ExportTaskFields;
-import com.eximport.export.shared.support.ExportTaskFingerprintSupport;
+import com.eximport.shared.exporting.model.ExportTaskFields;
+import com.eximport.shared.exporting.support.ExportTaskFingerprintSupport;
 
 /**
  * 导出请求指纹工具。

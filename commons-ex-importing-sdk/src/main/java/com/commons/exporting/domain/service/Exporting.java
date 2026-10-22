@@ -1,8 +1,8 @@
 package com.commons.exporting.domain.service;
 
 
-import com.commons.exporting.domain.model.ExportTaskCreateRequest;
 import com.commons.exporting.domain.model.ExportTaskInfo;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 
 /**
  * 异步导出 SDK 门面。
