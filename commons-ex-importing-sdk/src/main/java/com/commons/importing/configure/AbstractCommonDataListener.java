@@ -25,6 +25,10 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
      */
     protected Map<Integer, String> headMap;
     /**
+     * 当前 Sheet 是否跳过（每个 Sheet 在表头解析完时触发判定一次，避免 invoke 逐行重复判断与重复日志）
+     */
+    private boolean currentSheetSkipped;
+    /**
      * 批量保存数据量
      */
     @Getter
@@ -91,13 +95,19 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
     @Override
     public void invokeHeadMap(Map<Integer, String> headMap, AnalysisContext context) {
         this.headMap = new HashMap<>(headMap);
+        // 每个 Sheet 表头解析完回调一次：此处判定是否跳过当前 Sheet，
+        // invoke 中只读状态不再逐行重复判断，也不会重复输出跳过日志
+        String sheetName = context.readSheetHolder().getSheetName();
+        this.currentSheetSkipped = this.needSkip(sheetName);
+        if (this.currentSheetSkipped) {
+            log.info("[AbstractCommonDataListener#invokeHeadMap]不处理Sheet:{}", sheetName);
+        }
     }
 
     @Override
     public void invoke(T data, AnalysisContext context) {
-        String sheetName = context.readSheetHolder().getSheetName();
-        if (this.needSkip(sheetName)) {
-            log.info("[AbstractCommonDataListener#invoke]不处理Sheet:{}", sheetName);
+        if (this.currentSheetSkipped) {
+            // 当前 Sheet 已判定跳过，静默丢弃补数据行，不重复打印
             return;
         }
 
@@ -129,6 +139,7 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
 
     @Override
     public void doAfterAllAnalysed(AnalysisContext context) {
+        // 空 Sheet 不会触发 invokeHeadMap，此处现场判定一次，避免上个 Sheet 的跳过状态泄漏到空 Sheet
         if (this.needSkip(context.readSheetHolder().getSheetName())) {
             return;
         }
