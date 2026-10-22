@@ -2,6 +2,7 @@ package com.eximport.export.shared.excel;
 
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.handler.CellWriteHandler;
+import com.eximport.export.shared.excel.loader.BatchData;
 
 import java.io.File;
 import java.util.List;

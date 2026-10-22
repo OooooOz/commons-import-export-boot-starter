@@ -5,6 +5,9 @@ import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.handler.CellWriteHandler;
 import com.alibaba.excel.write.metadata.WriteSheet;
+import com.eximport.export.shared.excel.converter.BigDecimalFormatExcelConverter;
+import com.eximport.export.shared.excel.loader.BatchData;
+import com.eximport.export.shared.excel.loader.BatchDataLoader;
 import com.eximport.export.shared.exception.ExImportingBusinessException;
 
 import java.io.File;
@@ -145,6 +148,8 @@ public class LargeExcelWriter {
                 }
             }
         }
+        // 注册BigDecimal格式转换器：识别@BigDecimalFormat按注解scale/roundingMode舍入后写出
+        writerBuilder.registerConverter(new BigDecimalFormatExcelConverter());
         return writerBuilder.build();
     }
 
