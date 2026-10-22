@@ -1,9 +1,12 @@
-package com.commons.exporting.infrastructure.model;
+package com.eximport.export.shared.excel;
 
 import java.util.List;
 
 /**
- * 流式导出单批数据
+ * 流式导出单批数据。
+ * <p>
+ * 与 sdk 模块的 {@code com.commons.exporting.infrastructure.model.BatchData} 契约一致，
+ * 供 shared 模块的 {@link LargeExcelWriter} 分页调度使用。
  *
  * @param <T> 导出行类型
  */
@@ -28,7 +31,7 @@ public class BatchData<T> {
      * 总页数未知的批次数据
      */
     public static <T> BatchData<T> of(List<T> rows) {
-        return new BatchData<>(rows, 0);
+        return new BatchData<>(rows, 0L);
     }
 
     /**

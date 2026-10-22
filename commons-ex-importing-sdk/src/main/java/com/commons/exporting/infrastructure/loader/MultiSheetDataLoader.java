@@ -1,6 +1,6 @@
 package com.commons.exporting.infrastructure.loader;
 
-import com.commons.exporting.infrastructure.model.BatchData;
+import com.eximport.export.shared.excel.BatchData;
 
 /**
  * 多sheet流式导出的分批数据加载器

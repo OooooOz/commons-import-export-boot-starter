@@ -3,6 +3,7 @@ package com.eximport.export.shared.excel;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
+import com.alibaba.excel.write.handler.CellWriteHandler;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.eximport.export.shared.exception.ExImportingBusinessException;
 
@@ -14,8 +15,9 @@ import java.util.function.Consumer;
 /**
  * 大文件 Excel 分页写入工具，避免一次性把全部数据放入内存。
  *
- * <p>分页数据加载契约见独立的顶级接口 {@link PageDataLoader}，
- * 本类仅负责分页调度与多 sheet 写入。</p>
+ * <p>分页数据加载契约见 {@link BatchDataLoader}（与 sdk 模块同名接口契约一致），
+ * 本类仅负责分页调度与多 sheet 写入。终止规则与
+ * {@code CommonExcelUtil#streamWriteExcel} 一致：单批不足 pageSize、空批或已知总页数且页码已达总页数即结束。</p>
  */
 public class LargeExcelWriter {
 
@@ -44,17 +46,16 @@ public class LargeExcelWriter {
                           String sheetName,
                           Class<T> headClass,
                           Consumer<ExcelWriterBuilder> writerBuilderCustomizer,
-                          PageDataLoader<T> loader,
+                          List<CellWriteHandler> handlers,
+                          BatchDataLoader<T> loader,
                           int pageSize,
                           long maxRowsPerSheet,
                           long maxQueryPages) {
         check(file != null, "file不能为空");
         check(headClass != null, "headClass不能为空");
         check(loader != null, "loader不能为空");
-        // 加载器声明的 pageSize 优先；否则以调用方传入（通常来自配置）的为准
-        int effectivePageSize = loader.pageSize() > 0 ? loader.pageSize() : pageSize;
-        if (effectivePageSize <= 0) {
-            effectivePageSize = DEFAULT_PAGE_SIZE;
+        if (pageSize <= 0) {
+            pageSize = DEFAULT_PAGE_SIZE;
         }
         if (maxRowsPerSheet <= 0 || maxRowsPerSheet > MAX_ROWS_PER_SHEET) {
             maxRowsPerSheet = MAX_ROWS_PER_SHEET;
@@ -64,10 +65,7 @@ public class LargeExcelWriter {
         }
 
         ExcelWriterBuilder writerBuilder = EasyExcel.write(file, headClass);
-        if (writerBuilderCustomizer != null) {
-            writerBuilderCustomizer.accept(writerBuilder);
-        }
-        ExcelWriter writer = writerBuilder.build();
+        ExcelWriter writer = this.buildCustomizerExcelWriter(writerBuilder, writerBuilderCustomizer, handlers);
         RuntimeException primary = null;
         try {
             int sheetNo = 0;
@@ -75,18 +73,19 @@ public class LargeExcelWriter {
             boolean wroteAny = false;
             WriteSheet currentSheet = buildSheet(sheetNo, sheetName);
 
-            for (long pageNo = 1L; ; pageNo++) {
-                check(pageNo <= maxQueryPages, "导出分页查询超过最大页数限制(" + maxQueryPages + ")，请检查queryPage是否正确使用pageNo分页，并在最后一页返回空集合或不足pageSize的数据");
-                List<T> pageData = loader.load(pageNo, effectivePageSize);
-                if (pageData == null || pageData.isEmpty()) {
+            for (int pageNum = 1; ; pageNum++) {
+                check(pageNum <= maxQueryPages, "导出分页查询超过最大页数限制(" + maxQueryPages + ")，请检查queryPage是否正确使用pageNo分页，并在最后一页返回空集合或不足pageSize的数据");
+                BatchData<T> batchData = loader.load(pageNum);
+                List<T> batch = batchData == null ? null : batchData.getRows();
+                if (batch == null || batch.isEmpty()) {
                     break;
                 }
-                int size = pageData.size();
-                check(size <= effectivePageSize, "分页查询返回条数(" + size + ")不能大于pageSize(" + effectivePageSize + ")");
+                int size = batch.size();
+                check(size <= pageSize, "分页查询返回条数(" + size + ")不能大于pageSize(" + pageSize + ")");
 
                 if (currentSheetRows + size <= maxRowsPerSheet) {
                     // 常规路径：整页装入当前 sheet，无需切分
-                    writer.write(pageData, currentSheet);
+                    writer.write(batch, currentSheet);
                     currentSheetRows += size;
                 } else {
                     // 跨 sheet 路径：按当前 sheet 剩余容量切分写入
@@ -98,14 +97,18 @@ public class LargeExcelWriter {
                             currentSheet = buildSheet(sheetNo, sheetName);
                         }
                         int canWrite = (int) Math.min((long) size - offset, maxRowsPerSheet - currentSheetRows);
-                        writer.write(pageData.subList(offset, offset + canWrite), currentSheet);
+                        writer.write(batch.subList(offset, offset + canWrite), currentSheet);
                         currentSheetRows += canWrite;
                         offset += canWrite;
                     }
                 }
                 wroteAny = true;
 
-                if (size < effectivePageSize) {
+                if (size < pageSize) {
+                    break;
+                }
+                // 已知总页数且当前已是最后一页，无需再多一次空探测
+                if (batchData.getTotalPages() > 0 && pageNum >= batchData.getTotalPages()) {
                     break;
                 }
             }
@@ -128,6 +131,21 @@ public class LargeExcelWriter {
                 }
             }
         }
+    }
+
+    private ExcelWriter buildCustomizerExcelWriter(ExcelWriterBuilder writerBuilder, Consumer<ExcelWriterBuilder> writerBuilderCustomizer, List<CellWriteHandler> handlers) {
+        if (writerBuilderCustomizer != null) {
+            writerBuilderCustomizer.accept(writerBuilder);
+        }
+        // 单元格写入处理器按列表顺序依次注册（跳过 null 元素）
+        if (handlers != null) {
+            for (CellWriteHandler handler : handlers) {
+                if (handler != null) {
+                    writerBuilder.registerWriteHandler(handler);
+                }
+            }
+        }
+        return writerBuilder.build();
     }
 
     private WriteSheet buildSheet(int sheetNo, String sheetName) {

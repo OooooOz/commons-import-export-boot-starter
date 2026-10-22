@@ -1,6 +1,7 @@
 package com.eximport.export.shared.excel;
 
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
+import com.alibaba.excel.write.handler.CellWriteHandler;
 
 import java.io.File;
 import java.util.List;
@@ -29,19 +30,33 @@ public class PagedExcelWriteSupport {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     public void writeExcel(File tempFile,
-                               String sheetName,
-                               Class<?> headClass,
-                               Consumer<ExcelWriterBuilder> writerBuilderCustomizer,
-                               PageDataSupplier loader,
-                               int pageSize,
-                               long maxRowsPerSheet,
-                               long maxQueryPages) {
+                           String sheetName,
+                           Class<?> headClass,
+                           Consumer<ExcelWriterBuilder> writerBuilderCustomizer,
+                           PageDataSupplier loader,
+                           int pageSize,
+                           long maxRowsPerSheet,
+                           long maxQueryPages) {
+        writeExcel(tempFile, sheetName, headClass, writerBuilderCustomizer, null, loader, pageSize, maxRowsPerSheet, maxQueryPages);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public void writeExcel(File tempFile,
+                           String sheetName,
+                           Class<?> headClass,
+                           Consumer<ExcelWriterBuilder> writerBuilderCustomizer,
+                           List<CellWriteHandler> handlers,
+                           PageDataSupplier loader,
+                           int pageSize,
+                           long maxRowsPerSheet,
+                           long maxQueryPages) {
         largeExcelWriter.write(
                 tempFile,
                 sheetName,
                 (Class) headClass,
                 writerBuilderCustomizer,
-                (PageDataLoader) loader::load,
+                handlers,
+                pageNum -> BatchData.of(loader.load(pageNum, pageSize)),
                 pageSize,
                 maxRowsPerSheet,
                 maxQueryPages);
@@ -53,27 +68,29 @@ public class PagedExcelWriteSupport {
                                   int pageSize,
                                   long maxRowsPerSheet,
                                   long maxQueryPages) {
+        writeExcel(tempFile, request, handler, null, pageSize, maxRowsPerSheet, maxQueryPages);
+    }
+
+    public <R, T> void writeExcel(File tempFile,
+                                  R request,
+                                  ExcelPageExportHandler<R, T> handler,
+                                  List<CellWriteHandler> handlers,
+                                  int pageSize,
+                                  long maxRowsPerSheet,
+                                  long maxQueryPages) {
         if (handler == null) {
             throw new IllegalArgumentException("handler不能为空");
         }
+        // handler 声明的 pageSize 优先；未声明（<=0）时沿用调用方传入的配置值
+        int effectivePageSize = handler.pageSize() > 0 ? handler.pageSize() : pageSize;
         largeExcelWriter.write(
                 tempFile,
                 handler.sheetName(request),
                 handler.headClass(),
                 writerBuilder -> handler.customizeWriter(request, writerBuilder),
-                // handler 声明的 pageSize 优先；未声明（<=0）时沿用调用方传入的配置值
-                new PageDataLoader<T>() {
-                    @Override
-                    public List<T> load(long pageNo, int effectivePageSize) {
-                        return handler.queryPage(request, pageNo, effectivePageSize);
-                    }
-
-                    @Override
-                    public int pageSize() {
-                        return handler.pageSize();
-                    }
-                },
-                pageSize,
+                handlers,
+                pageNum -> BatchData.of(handler.queryPage(request, pageNum, effectivePageSize)),
+                effectivePageSize,
                 maxRowsPerSheet,
                 maxQueryPages);
     }
