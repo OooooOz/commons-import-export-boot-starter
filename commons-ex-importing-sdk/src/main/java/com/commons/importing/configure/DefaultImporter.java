@@ -3,6 +3,7 @@ package com.commons.importing.configure;
 import com.alibaba.excel.EasyExcelFactory;
 import com.commons.importing.Importer;
 import com.commons.importing.model.ImportResultVO;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.InputStream;
 
@@ -15,6 +16,8 @@ public class DefaultImporter<T> implements Importer<T> {
     private Integer maxRows;
 
     private boolean readAll;
+
+    private String sheetName;
 
     private ImportResultVO importResultVO;
 
@@ -41,10 +44,13 @@ public class DefaultImporter<T> implements Importer<T> {
     public void startImport(AbstractCommonDataListener listener) {
         listener.setMaxRows(maxRows);
         if (!readAll) {
-            EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet().doRead();
+            if (StringUtils.isNotBlank(sheetName)) {
+                EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet(sheetName).doRead();
+            } else {
+                EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet().doRead();
+            }
         } else {
             EasyExcelFactory.read(file, factory.getEntityClass(), listener).doReadAll();
-
         }
         importResultVO = listener.getImportResultVO();
     }
