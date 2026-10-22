@@ -8,7 +8,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.eximport.shared.exporting.exception.ExImportingBusinessException;
 import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.domain.mapper.ExportTaskProcessMapper;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.enums.ExportTaskStatusEnum;
@@ -45,7 +45,7 @@ public class ExportTaskProcessServiceImpl extends ServiceImpl<ExportTaskProcessM
     }
 
     @Override
-    public ExportTaskVO createTask(ExportTaskDTO dto) {
+    public ExportTaskVO createTask(ExportTaskCreateRequest dto) {
         String requestFingerprint = ExportTaskRequestFingerprintUtil.build(dto);
         return requestDedupLockManager.execute(requestFingerprint, () -> {
             ExportTaskProcess existing = findReusableTask(requestFingerprint);

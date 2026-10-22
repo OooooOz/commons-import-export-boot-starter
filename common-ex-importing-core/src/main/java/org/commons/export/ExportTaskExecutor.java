@@ -4,12 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.eximport.shared.exporting.support.*;
 import lombok.extern.slf4j.Slf4j;
 import org.commons.domain.mapper.ExportTaskProcessMapper;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.enums.ExportTaskStatusEnum;
 import org.commons.export.config.ExportAsyncProperties;
 import org.commons.export.config.ExportStorageProperties;
-import org.commons.export.handler.ExportTaskHandler;
+import com.eximport.shared.exporting.excel.handler.AsyncExportHandler;
 import org.commons.export.notify.ExportTaskNotifier;
 import org.commons.export.storage.ExportFileStorage;
 import org.commons.export.storage.StorageResult;
@@ -42,7 +42,7 @@ public class ExportTaskExecutor {
     private final ExportAsyncProperties asyncProperties;
     private final ExportStorageProperties storageProperties;
     private final PagedExcelWriteSupport excelWriteSupport = new PagedExcelWriteSupport();
-    private final Map<String, ExportTaskHandler<?>> handlerMap;
+    private final Map<String, AsyncExportHandler<?>> handlerMap;
     private ThreadPoolTaskExecutor executor;
 
     public ExportTaskExecutor(ExportTaskProcessMapper taskMapper,
@@ -50,7 +50,7 @@ public class ExportTaskExecutor {
                               ExportTaskNotifier notifier,
                               ExportAsyncProperties asyncProperties,
                               ExportStorageProperties storageProperties,
-                              List<ExportTaskHandler<?>> handlers) {
+                              List<AsyncExportHandler<?>> handlers) {
         this.taskMapper = taskMapper;
         this.fileStorage = fileStorage;
         this.notifier = notifier;
@@ -82,10 +82,10 @@ public class ExportTaskExecutor {
         }
     }
 
-    public void submit(Long taskId, ExportTaskDTO dto) {
+    public void submit(Long taskId, ExportTaskCreateRequest dto) {
         Executor target = executor;
         CommonUtil.checkExImportingBusinessException(target != null, "导出线程池未初始化");
-        ExportTaskDTO safeDto = snapshotDto(dto);
+        ExportTaskCreateRequest safeDto = snapshotDto(dto);
         try {
             target.execute(() -> runTask(taskId, safeDto));
         } catch (RejectedExecutionException e) {
@@ -94,7 +94,7 @@ public class ExportTaskExecutor {
         }
     }
 
-    private void runTask(Long taskId, ExportTaskDTO dto) {
+    private void runTask(Long taskId, ExportTaskCreateRequest dto) {
         ExportTaskProcess task = taskMapper.selectById(taskId);
         if (task == null) {
             log.warn("导出任务不存在，taskId={}", taskId);
@@ -109,7 +109,7 @@ public class ExportTaskExecutor {
         File tempFile = null;
         try {
             String handlerKey = ExportHandlerRegistrySupport.buildHandlerKey(task.getBusinessSystem(), task.getBusinessType());
-            ExportTaskHandler<?> handler = handlerMap.get(handlerKey);
+            AsyncExportHandler<?> handler = handlerMap.get(handlerKey);
             CommonUtil.checkExImportingBusinessException(handler != null, "未找到导出处理器，businessSystem=" + task.getBusinessSystem() + ", businessType=" + task.getBusinessType());
 
             String fileName = ExportExecutionSupport.normalizeFileName(StringUtils.hasText(task.getFileName()) ? task.getFileName() : handler.fileName(dto));
@@ -173,11 +173,11 @@ public class ExportTaskExecutor {
         notifier.notify(taskMapper.selectById(taskId));
     }
 
-    private ExportTaskDTO snapshotDto(ExportTaskDTO dto) {
+    private ExportTaskCreateRequest snapshotDto(ExportTaskCreateRequest dto) {
         if (dto == null) {
-            return new ExportTaskDTO();
+            return new ExportTaskCreateRequest();
         }
-        ExportTaskDTO snapshot = new ExportTaskDTO();
+        ExportTaskCreateRequest snapshot = new ExportTaskCreateRequest();
         snapshot.setTaskName(dto.getTaskName());
         snapshot.setBusinessType(dto.getBusinessType());
         snapshot.setBusinessSystem(dto.getBusinessSystem());

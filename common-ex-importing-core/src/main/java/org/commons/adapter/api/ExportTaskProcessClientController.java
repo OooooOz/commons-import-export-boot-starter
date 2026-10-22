@@ -4,7 +4,7 @@ import com.eximport.shared.exporting.model.ExportTaskSuccessDTO;
 import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.adapter.dto.ExportTaskFailureDTO;
 import org.commons.application.CommonExportTaskProcessService;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.vo.BaseResponse;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
@@ -32,7 +32,7 @@ public class ExportTaskProcessClientController {
      * sdk 客户端模式创建导出任务：任务只存储在 core，不由 core 执行业务数据查询。
      */
     @PostMapping("/create")
-    public BaseResponse<ExportTaskVO> createClientTask(@RequestBody @Validated ExportTaskDTO dto) {
+    public BaseResponse<ExportTaskVO> createClientTask(@RequestBody @Validated ExportTaskCreateRequest dto) {
         return BaseResponse.SUCCESS(commonExportTaskProcessService.createClientTask(dto));
     }
 

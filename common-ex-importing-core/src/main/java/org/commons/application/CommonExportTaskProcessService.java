@@ -3,7 +3,7 @@ package org.commons.application;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.vo.LocalExportFileDownload;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -15,12 +15,12 @@ public interface CommonExportTaskProcessService {
     /**
      * 创建导出任务。
      */
-    ExportTaskVO createTask(ExportTaskDTO dto);
+    ExportTaskVO createTask(ExportTaskCreateRequest dto);
 
     /**
      * 仅创建导出任务，不在 core 侧提交执行；供业务系统 starter 远程创建任务使用。
      */
-    ExportTaskVO createClientTask(ExportTaskDTO dto);
+    ExportTaskVO createClientTask(ExportTaskCreateRequest dto);
 
     /**
      * 将任务标记为处理中。

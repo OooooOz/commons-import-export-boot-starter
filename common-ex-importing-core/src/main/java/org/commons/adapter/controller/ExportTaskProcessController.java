@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.eximport.shared.exporting.model.ExportTaskVO;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
 import org.commons.application.CommonExportTaskProcessService;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.vo.BaseResponse;
 import org.commons.domain.model.vo.LocalExportFileDownload;
@@ -38,7 +38,7 @@ public class ExportTaskProcessController {
      * @return 任务信息
      */
     @PostMapping("/create")
-    public BaseResponse<ExportTaskVO> createTask(@RequestBody @Validated ExportTaskDTO dto) {
+    public BaseResponse<ExportTaskVO> createTask(@RequestBody @Validated ExportTaskCreateRequest dto) {
         return BaseResponse.SUCCESS(commonExportTaskProcessService.createTask(dto));
     }
 

@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.eximport.shared.exporting.model.ExportTaskVO;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 
@@ -22,7 +22,7 @@ public interface ExportTaskProcessService extends IService<ExportTaskProcess> {
      * @param dto
      * @return
      */
-    ExportTaskVO createTask(ExportTaskDTO dto);
+    ExportTaskVO createTask(ExportTaskCreateRequest dto);
 
     /**
      * 按请求指纹查询可复用的已有任务。

@@ -21,6 +21,7 @@
         <mybatis-spring-boot-starter.version>2.2.0</mybatis-spring-boot-starter.version>
         <fastJson.version>1.2.75</fastJson.version>
         <guava.version>30.1.1-jre</guava.version>
+        <lombok.version>1.18.22</lombok.version>
     </properties>
 
     <dependencyManagement>
@@ -50,6 +51,12 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <optional>true</optional>
+        </dependency>
         <dependency>
             <groupId>com.ex-import</groupId>
             <artifactId>commons-exporting-shared</artifactId>

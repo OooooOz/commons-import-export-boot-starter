@@ -10,7 +10,7 @@ import com.eximport.shared.exporting.support.ExportExecutionSupport;
 import com.eximport.shared.exporting.support.ExportStorageSupport;
 import org.commons.adapter.dto.ExportTaskPageParamDTO;
 import org.commons.application.CommonExportTaskProcessService;
-import org.commons.domain.model.dto.ExportTaskDTO;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
 import org.commons.domain.model.dto.ExportTaskPageQuery;
 import org.commons.domain.model.entity.ExportTaskProcess;
 import org.commons.domain.model.enums.ExportTaskStatusEnum;
@@ -67,12 +67,12 @@ public class CommonExportTaskProcessServiceImpl implements CommonExportTaskProce
     }
 
     @Override
-    public ExportTaskVO createTask(ExportTaskDTO dto) {
+    public ExportTaskVO createTask(ExportTaskCreateRequest dto) {
         return exportTaskProcessService.createTask(dto);
     }
 
     @Override
-    public ExportTaskVO createClientTask(ExportTaskDTO dto) {
+    public ExportTaskVO createClientTask(ExportTaskCreateRequest dto) {
         String requestFingerprint = ExportTaskRequestFingerprintUtil.build(dto);
         return requestDedupLockManager.execute(requestFingerprint, () -> {
             ExportTaskProcess existing = exportTaskProcessService.findReusableTask(requestFingerprint);

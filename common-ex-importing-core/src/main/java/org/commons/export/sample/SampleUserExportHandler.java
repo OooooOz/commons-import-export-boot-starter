@@ -1,7 +1,7 @@
 package org.commons.export.sample;
 
-import org.commons.domain.model.dto.ExportTaskDTO;
-import org.commons.export.handler.ExportTaskHandler;
+import com.eximport.shared.exporting.model.ExportTaskCreateRequest;
+import com.eximport.shared.exporting.excel.handler.AsyncExportHandler;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -14,7 +14,7 @@ import java.util.Map;
  */
 @Component
 @ConditionalOnProperty(prefix = "common.export.sample", name = "enabled", havingValue = "true")
-public class SampleUserExportHandler implements ExportTaskHandler<SampleUserExportRow> {
+public class SampleUserExportHandler implements AsyncExportHandler<SampleUserExportRow> {
     public static final String BUSINESS_SYSTEM = "手动DEMO";
     public static final String BUSINESS_TYPE = "测试";
 
@@ -34,17 +34,17 @@ public class SampleUserExportHandler implements ExportTaskHandler<SampleUserExpo
     }
 
     @Override
-    public String sheetName(ExportTaskDTO dto) {
+    public String sheetName(ExportTaskCreateRequest dto) {
         return "用户数据";
     }
 
     @Override
-    public String fileName(ExportTaskDTO dto) {
+    public String fileName(ExportTaskCreateRequest dto) {
         return "用户导出.xlsx";
     }
 
     @Override
-    public List<SampleUserExportRow> queryPage(ExportTaskDTO dto, long pageNo, int pageSize) {
+    public List<SampleUserExportRow> queryPage(ExportTaskCreateRequest dto, long pageNo, int pageSize) {
         long total = getLong(dto.getExtMap(), "total", 10000L);
         long start = (pageNo - 1L) * pageSize + 1L;
         if (start > total) {
