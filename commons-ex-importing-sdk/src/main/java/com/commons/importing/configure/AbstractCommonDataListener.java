@@ -27,6 +27,13 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
      */
     private boolean currentSheetSkipped;
     /**
+     * 当前 Sheet 名称与已解析的导入数据行数；Sheet 切换（表头解析）时重置，
+     * 分批保存不清零，用于 Sheet 处理前输出该 Sheet 的完整行数
+     */
+    private String currentSheetName;
+
+    private int currentSheetRowCount;
+    /**
      * 批量保存数据量
      */
     @Getter
@@ -97,6 +104,8 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
         // invoke 中只读状态不再逐行重复判断，也不会重复输出跳过日志
         String sheetName = context.readSheetHolder().getSheetName();
         this.currentSheetSkipped = this.needSkip(sheetName);
+        this.currentSheetName = sheetName;
+        this.currentSheetRowCount = 0;
         if (this.currentSheetSkipped) {
             log.info("[AbstractCommonDataListener#invokeHeadMap]不处理Sheet:{}", sheetName);
         }
@@ -108,6 +117,9 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
             // 当前 Sheet 已判定跳过，静默丢弃补数据行，不重复打印
             return;
         }
+
+        // 当前 Sheet 导入行数累计（分批保存不清零）
+        this.currentSheetRowCount++;
 
         // 逐行校验数据
         this.singleCheckData(data);
@@ -138,9 +150,14 @@ public abstract class AbstractCommonDataListener<T> extends AnalysisEventListene
     @Override
     public void doAfterAllAnalysed(AnalysisContext context) {
         // 空 Sheet 不会触发 invokeHeadMap，此处现场判定一次，避免上个 Sheet 的跳过状态泄漏到空 Sheet
-        if (this.needSkip(context.readSheetHolder().getSheetName())) {
+        String sheetName = context.readSheetHolder().getSheetName();
+        if (this.needSkip(sheetName)) {
             return;
         }
+        // 处理前输出当前 Sheet 的导入数据行数；空 Sheet 未触发过 invokeHeadMap，按 0 行计
+        int sheetRowCount = sheetName.equals(this.currentSheetName) ? this.currentSheetRowCount : 0;
+        log.info("[AbstractCommonDataListener#doAfterAllAnalysed]Sheet[{}]导入数据共{}行，开始处理", sheetName, sheetRowCount);
+
         if (maxRows != null && maxRows < list.size()) {
             importResultVO.addGlobalMsg(String.format("导入数据超过%s条", maxRows));
             return;

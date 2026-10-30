@@ -196,6 +196,18 @@ public class ExcelWriterUtils {
     }
 
     private WriteSheet buildSheet(int sheetNo, String sheetName) {
+        return EasyExcel.writerSheet(sheetNo, buildSheetName(sheetNo, sheetName)).build();
+    }
+
+    /**
+     * 构建 sheet 名：首个 sheet 保持原名，行数超大切分出的后续 sheet 追加 "_序号" 后缀（序号从2开始），
+     * 并截断至 xlsx 上限 31 字符，避免写入失败
+     *
+     * @param sheetNo   sheet 切分序号（从0开始，0表示首个sheet）
+     * @param sheetName 原始 sheet 名
+     * @return 实际写入的 sheet 名
+     */
+    public static String buildSheetName(int sheetNo, String sheetName) {
         String name = sheetName == null || sheetName.trim().length() == 0 ? "数据" : sheetName.trim();
         // xlsx sheet 名上限 31 字符；多 sheet 时需容纳 "_序号" 后缀，超长截断避免写入失败
         int maxBaseLength = 31 - (sheetNo > 0 ? String.valueOf(sheetNo + 1).length() + 1 : 0);
@@ -205,6 +217,6 @@ public class ExcelWriterUtils {
         if (sheetNo > 0) {
             name = name + "_" + (sheetNo + 1);
         }
-        return EasyExcel.writerSheet(sheetNo, name).build();
+        return name;
     }
 }

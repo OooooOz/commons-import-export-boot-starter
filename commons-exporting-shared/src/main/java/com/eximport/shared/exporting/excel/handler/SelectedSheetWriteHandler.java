@@ -49,10 +49,19 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
                 // 1.创建一个隐藏的sheet 名称为 hidden + k
                 String sheetName = HIDDEN_SHEET_NAME_PREFIX + k;
                 Workbook workbook = writeWorkbookHolder.getWorkbook();
-                Sheet hiddenSheet = workbook.createSheet(sheetName);
-                for (int i = 0, length = v.getSource().length; i < length; i++) {
-                    // 开始的行数i，列数k
-                    hiddenSheet.createRow(i).createCell(k).setCellValue(v.getSource()[i]);
+                // 同一列的下拉数据源 sheet 在多个业务sheet间复用，已存在时直接复用，避免重复创建同名sheet
+                Sheet hiddenSheet = workbook.getSheet(sheetName);
+                if (hiddenSheet == null) {
+                    hiddenSheet = workbook.createSheet(sheetName);
+                    for (int i = 0, length = v.getSource().length; i < length; i++) {
+                        // 开始的行数i，列数k
+                        hiddenSheet.createRow(i).createCell(k).setCellValue(v.getSource()[i]);
+                    }
+                    // 设置存储下拉列值的sheet为隐藏
+                    int hiddenIndex = workbook.getSheetIndex(sheetName);
+                    if (!workbook.isSheetHidden(hiddenIndex)) {
+                        workbook.setSheetHidden(hiddenIndex, true);
+                    }
                 }
 
                 String excelLine = getExcelLine(k);
@@ -60,11 +69,6 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
                 String refers = "=" + sheetName + "!$" + excelLine + "$1:$" + excelLine + "$" + (v.getSource().length);
                 // 将刚才设置的sheet引用到你的下拉列表中
                 constraint = helper.createFormulaListConstraint(refers);
-                // 设置存储下拉列值得sheet为隐藏
-                int hiddenIndex = workbook.getSheetIndex(sheetName);
-                if (!workbook.isSheetHidden(hiddenIndex)) {
-                    workbook.setSheetHidden(hiddenIndex, true);
-                }
             } else {
                 constraint = helper.createExplicitListConstraint(v.getSource());
             }
@@ -95,9 +99,9 @@ public class SelectedSheetWriteHandler implements SheetWriteHandler {
         int first = num / 26;
         int second = num % 26;
         if (first > 0) {
-            line = (char)('A' + first - 1) + "";
+            line = (char) ('A' + first - 1) + "";
         }
-        line += (char)('A' + second) + "";
+        line += (char) ('A' + second) + "";
         return line;
     }
 }

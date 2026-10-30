@@ -6,6 +6,7 @@ import com.alibaba.excel.ExcelWriter;
 import com.alibaba.excel.write.builder.ExcelWriterBuilder;
 import com.alibaba.excel.write.builder.ExcelWriterSheetBuilder;
 import com.alibaba.excel.write.handler.CellWriteHandler;
+import com.alibaba.excel.write.handler.WriteHandler;
 import com.alibaba.excel.write.metadata.WriteSheet;
 import com.eximport.shared.exporting.excel.ExcelWriterUtils;
 import com.eximport.shared.exporting.excel.loader.BatchDataLoader;
@@ -198,11 +199,21 @@ public final class CommonExcelUtil {
      * 该sheet的loader行数据为空、或行数不足该sheet单批条数时结束当前sheet；已知总页数时整页结尾提前终止；
      * 数据为空时写出仅表头的空sheet。</p>
      *
+     * <p>每个sheet可配置多个写入处理器（SheetWriteHandler/CellWriteHandler等）及表头下移行数
+     * （用于表头上方写入说明行等场景）。</p>
+     *
+     * <p>单个sheet数据行数超过 maxRowsPerSheet 时自动切分新sheet继续写入，切分行为参考
+     * 命名追加 "_序号" 后缀（见{@link ExcelWriterUtils#buildSheetName}），切分出的每个sheet
+     * 均重复注册该sheet的处理器与表头下移行数，保证各分片可独立阅读。</p>
+     *
      * @param fileName 文件名
      * @param response 响应
-     * @param sheets   各sheet配置（sheet名、表头类、单批条数、分批数据加载器、单元格写入处理器，处理器可为空）
+     * @param sheets   各sheet配置（sheet名、表头类、单批条数、分批数据加载器、写入处理器列表、表头下移行数、
+     *                 单sheet最大行数，处理器可为空，最大行数&lt;=0时取默认值）
      */
-    public static void streamWriteExcelMultiSheet(String fileName, HttpServletResponse response, List<MultiSheetWriterSpec> sheets) {
+    public static void streamWriteExcelMultiSheet(String fileName,
+                                                  HttpServletResponse response,
+                                                  List<MultiSheetWriterSpec> sheets) {
         if (sheets == null || sheets.isEmpty()) {
             throw new ExImportingBusinessException("导出sheet配置不能为空");
         }
@@ -210,28 +221,48 @@ public final class CommonExcelUtil {
         try {
             initResponseHeader(fileName, response);
             excelWriter = EasyExcelFactory.write(response.getOutputStream()).inMemory(false).build();
-            for (int sheetIndex = 0; sheetIndex < sheets.size(); sheetIndex++) {
-                MultiSheetWriterSpec spec = sheets.get(sheetIndex);
+            // sheet下标随切分递增，跨spec连续
+            int sheetIndex = 0;
+            for (MultiSheetWriterSpec spec : sheets) {
                 if (spec.getPageSize() <= 0) {
                     throw new ExImportingBusinessException("导出单批条数必须大于0");
                 }
-                ExcelWriterSheetBuilder sheetBuilder = EasyExcelFactory.writerSheet(sheetIndex, spec.getSheetName())
-                        .head(spec.getHeadClass());
-                if (spec.getHandler() != null) {
-                    sheetBuilder.registerWriteHandler(spec.getHandler());
-                }
-                WriteSheet writeSheet = sheetBuilder.build();
+                long maxRowsPerSheet = resolveMaxRowsPerSheet(spec);
+                // sheet切分序号：0表示首个sheet保持原名
+                int sheetNo = 0;
+                WriteSheet currentSheet = buildSpecWriteSheet(sheetIndex, sheetNo, spec);
+                long currentSheetRows = 0L;
                 int pageNum = 1;
                 while (true) {
                     BatchData<?> batchData = spec.getLoader().load(pageNum);
                     List<?> batch = batchData == null ? null : batchData.getRows();
                     if (batch == null || batch.isEmpty()) {
                         if (pageNum == 1) {
-                            excelWriter.write(Collections.emptyList(), writeSheet);
+                            excelWriter.write(Collections.emptyList(), currentSheet);
                         }
                         break;
                     }
-                    excelWriter.write(batch, writeSheet);
+                    int size = batch.size();
+                    if (currentSheetRows + size <= maxRowsPerSheet) {
+                        // 常规路径：整批装入当前 sheet，无需切分
+                        excelWriter.write(batch, currentSheet);
+                        currentSheetRows += size;
+                    } else {
+                        // 跨sheet路径：按当前sheet剩余容量切分写入，写满自动新建sheet
+                        int offset = 0;
+                        while (offset < size) {
+                            if (currentSheetRows >= maxRowsPerSheet) {
+                                sheetIndex++;
+                                sheetNo++;
+                                currentSheetRows = 0L;
+                                currentSheet = buildSpecWriteSheet(sheetIndex, sheetNo, spec);
+                            }
+                            int canWrite = (int) Math.min((long) size - offset, maxRowsPerSheet - currentSheetRows);
+                            excelWriter.write(batch.subList(offset, offset + canWrite), currentSheet);
+                            currentSheetRows += canWrite;
+                            offset += canWrite;
+                        }
+                    }
                     // 不足整页说明已是最后一页，停止继续查询
                     if (batch.size() < spec.getPageSize()) {
                         break;
@@ -242,6 +273,7 @@ public final class CommonExcelUtil {
                     }
                     pageNum++;
                 }
+                sheetIndex++;
             }
         } catch (ExImportingBusinessException e) {
             throw e;
@@ -253,5 +285,39 @@ public final class CommonExcelUtil {
                 excelWriter.finish();
             }
         }
+    }
+
+    /**
+     * 解析单sheet最大数据行数：显式配置时不超过 xlsx 上限扣除表头下移行数（首个表头行已在上限中预留），
+     * 未配置（&lt;=0）时直接取该上限
+     *
+     * @param spec sheet配置
+     * @return 单sheet最大数据行数
+     */
+    private static long resolveMaxRowsPerSheet(MultiSheetWriterSpec spec) {
+        long maxSheetRows = ExcelWriterUtils.MAX_ROWS_PER_SHEET - Math.max(0, spec.getRelativeHeadRowIndex());
+        return spec.getMaxRowsPerSheet() > 0 ? Math.min(spec.getMaxRowsPerSheet(), maxSheetRows) : maxSheetRows;
+    }
+
+    /**
+     * 按spec配置构建单个写入sheet，切分出的后续sheet以 "_序号" 后缀命名
+     *
+     * @param sheetIndex 工作簿内sheet下标（随切分递增）
+     * @param sheetNo    该spec内的切分序号，0表示首个sheet
+     * @param spec       sheet配置
+     * @return 写入sheet
+     */
+    private static WriteSheet buildSpecWriteSheet(int sheetIndex, int sheetNo, MultiSheetWriterSpec spec) {
+        ExcelWriterSheetBuilder sheetBuilder = EasyExcelFactory.writerSheet(sheetIndex, ExcelWriterUtils.buildSheetName(sheetNo, spec.getSheetName()))
+                .head(spec.getHeadClass());
+        if (spec.getRelativeHeadRowIndex() > 0) {
+            sheetBuilder.relativeHeadRowIndex(spec.getRelativeHeadRowIndex());
+        }
+        if (spec.getHandlers() != null && !spec.getHandlers().isEmpty()) {
+            for (WriteHandler handler : spec.getHandlers()) {
+                sheetBuilder.registerWriteHandler(handler);
+            }
+        }
+        return sheetBuilder.build();
     }
 }
