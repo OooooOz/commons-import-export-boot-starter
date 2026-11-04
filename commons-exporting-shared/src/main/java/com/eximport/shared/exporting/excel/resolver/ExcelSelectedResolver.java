@@ -1,5 +1,6 @@
 package com.eximport.shared.exporting.excel.resolver;
 
+import com.alibaba.excel.annotation.ExcelIgnore;
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.eximport.shared.exporting.excel.annotation.ExcelDynamicSelect;
 import com.eximport.shared.exporting.excel.annotation.ExcelSelected;
@@ -32,9 +33,16 @@ public final class ExcelSelectedResolver {
         Map<Integer, ExcelSelectedMeta> selectedMap = new HashMap<>();
 
         // getDeclaredFields(): 返回全部声明的属性；getFields(): 返回public类型的属性
+        // 列号与 EasyExcel 写入列对齐：跳过 @ExcelIgnore 字段后按剩余字段顺序计数，
+        // 否则表头类含非导出字段时（如导入回填字段），下拉校验会整体错位到后面的列
         Field[] fields = head.getDeclaredFields();
+        int columnIndex = 0;
         for (int i = 0; i < fields.length; i++) {
             Field field = fields[i];
+            if (field.getAnnotation(ExcelIgnore.class) != null) {
+                // 非导出字段不占 Excel 列，不累计列号
+                continue;
+            }
             // 解析注解信息
             ExcelSelected selected = field.getAnnotation(ExcelSelected.class);
             ExcelProperty property = field.getAnnotation(ExcelProperty.class);
@@ -48,10 +56,11 @@ public final class ExcelSelectedResolver {
                     if (property != null && property.index() >= 0) {
                         selectedMap.put(property.index(), selectedMeta);
                     } else {
-                        selectedMap.put(i, selectedMeta);
+                        selectedMap.put(columnIndex, selectedMeta);
                     }
                 }
             }
+            columnIndex++;
         }
         return selectedMap;
     }

@@ -1,10 +1,10 @@
 package com.commons.importing.model;
 
+import lombok.Data;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import lombok.Data;
 
 /**
  * 导入结果汇总对象。
@@ -13,6 +13,12 @@ import lombok.Data;
  */
 @Data
 public class ImportResultVO {
+
+
+    /**
+     * 批次号，用于关联导入失败数据下载
+     */
+    private String batchNo;
 
     private final AtomicInteger failure = new AtomicInteger();
 

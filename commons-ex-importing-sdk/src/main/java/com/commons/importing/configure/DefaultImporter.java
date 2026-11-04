@@ -17,6 +17,8 @@ public class DefaultImporter<T> implements Importer<T> {
 
     private boolean readAll;
 
+    private Integer headRowNumber;
+
     private String sheetName;
 
     private ImportResultVO importResultVO;
@@ -41,16 +43,21 @@ public class DefaultImporter<T> implements Importer<T> {
     }
 
     @Override
+    public void headRowNumber(Integer headRowNumber) {
+        this.headRowNumber = headRowNumber;
+    }
+
+    @Override
     public void startImport(AbstractCommonDataListener listener) {
         listener.setMaxRows(maxRows);
         if (!readAll) {
             if (StringUtils.isNotBlank(sheetName)) {
-                EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet(sheetName).doRead();
+                EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet(sheetName).headRowNumber(headRowNumber).doRead();
             } else {
-                EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet().doRead();
+                EasyExcelFactory.read(file, factory.getEntityClass(), listener).sheet().headRowNumber(headRowNumber).doRead();
             }
         } else {
-            EasyExcelFactory.read(file, factory.getEntityClass(), listener).doReadAll();
+            EasyExcelFactory.read(file, factory.getEntityClass(), listener).headRowNumber(headRowNumber).doReadAll();
         }
         importResultVO = listener.getImportResultVO();
     }

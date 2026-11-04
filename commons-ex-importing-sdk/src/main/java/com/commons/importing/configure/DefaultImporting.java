@@ -17,10 +17,12 @@ public class DefaultImporting implements Importing, ApplicationContextAware {
 
     private final ConcurrentHashMap<Class<?>, ImporterFactory<?>> importerFactories = new ConcurrentHashMap();
 
+    @Override
     public <T> ImporterFactoryBuilder<T> getImporterFactoryBuilder() {
         return new DefaultImporterFactoryBuilder(this);
     }
 
+    @Override
     public <T> Importer<T> getImporter(Class<T> entityClass) {
         Assert.notNull(entityClass, "entity class is null");
         ImporterFactory<T> importerFactory = (ImporterFactory)this.importerFactories.get(entityClass);
